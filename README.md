@@ -59,9 +59,9 @@ cd sudokueink
 
 ## Captures de pantalla
 <p>
-  <img src="images/Menu_catala.png" width="300">
-  <img src="images/Joc_catala.png" width="300">
-  <img src="images/Stats_catala.png" width="300">
+  <img src="images/Menu_catala.png" width="200">
+  <img src="images/Joc_catala.png" width="200">
+  <img src="images/Stats_catala.png" width="200">
 </p>
 
 ## Desenvolupament
