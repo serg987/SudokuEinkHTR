@@ -113,11 +113,10 @@ sudoku-eink/
 ## Com jugar
 1. **Selecciona la dificultat:** Fàcil, Mitjà o Difícil
 2. **Omple la graella:** Toca una casella buida i escriu el número a mà o selecciona un número
-3. **Valida els moviments:** El joc detecta errors automàticament
-4. **Completa el Sudoku:** Quan s'omple correctament, guanya!
-5. **Revisa les estadístiques:** Consulta el teu progrés i millor temps
+3. **Completa el Sudoku:** Quan s'omple correctament, guanya!
+4. **Revisa les estadístiques:** Consulta el teu progrés i millor temps
 
-## Contribucions
+## Contribucions
 Les contribucions són benvingudes! Si vols millorar l'aplicació:
 1. Fes un fork del repositori
 2. Crea una branca per a la teva funcionalitat (git checkout -b feature/nova-funcio)
