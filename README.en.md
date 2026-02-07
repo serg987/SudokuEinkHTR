@@ -57,6 +57,13 @@ cd sudokueink
 - E-ink display recommended (works on any screen)
 - ~5-6 MB of free storage
 
+## Screenshots
+<p>
+  <img src="images/Menu_english.png" width="200">
+  <img src="images/Game_english.png" width="200">
+  <img src="images/Stats_english.png" width="200">
+</p>
+
 ## Development
 **Technologies used:**
 **Language:** Kotlin
