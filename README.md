@@ -57,6 +57,13 @@ cd sudokueink
 - Pantalla e-ink recomanada (funciona en qualsevol pantalla)
 - ~5-6 MB d'espai lliure
 
+## Captures de pantalla
+<p>
+  <img src="images/Menu_catala.png" width="300">
+  <img src="images/Joc_catala.png" width="300">
+  <img src="images/Stats_catala.png" width="300">
+</p>
+
 ## Desenvolupament
 **Tecnologies utilitzades:**
 **Llenguatge:** Kotlin
