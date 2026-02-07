@@ -18,7 +18,7 @@ This is the only official repository for Sudoku E-ink. Only download the app fro
 
 🔒 **Author:** ktacrack  
 📄 **License:** MIT License  
-🔗 **Official URL:** [https://github.com/ktacrack/sudokueink](https://github.com/ktacrack/SudokuEink)
+🔗 **Official URL:** [https://github.com/ktacrack/SudokuEink](https://github.com/ktacrack/SudokuEink)
 
 ---
 
