@@ -394,9 +394,9 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                 val number = rowNum * 3 + colNum + 1
                                 Button(
                                     onClick = {
-                                        selectedNumber = number
                                         selectedCell?.let { (row, col) ->
                                             if (!boardState[row][col].isFixed) {
+                                                selectedNumber = number
                                                 val newBoard = boardState.mapIndexed { r, rowList ->
                                                     rowList.mapIndexed { c, cell ->
                                                         if (r == row && c == col) {
@@ -420,6 +420,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                                     }
                                                 }
                                                 updateBoard(newBoard)
+                                                selectedNumber = null
                                             }
                                         }
                                     },
@@ -430,7 +431,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                         containerColor = if (selectedNumber == number) Color.Black else Color.White,
                                         contentColor = if (selectedNumber == number) Color.White else Color.Black
                                     ),
-                                    border = BorderStroke((2 * scale).dp, Color.Black),
+                                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Text(text = number.toString(), fontSize = (32 * scale).sp)
@@ -734,9 +735,9 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 for (number in 1..9) {
                     Button(
                         onClick = {
-                            selectedNumber = number
                             selectedCell?.let { (row, col) ->
                                 if (!boardState[row][col].isFixed) {
+                                    selectedNumber = number
                                     val newBoard = boardState.mapIndexed { r, rowList ->
                                         rowList.mapIndexed { c, cell ->
                                             if (r == row && c == col) {
@@ -757,6 +758,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                         }
                                     }
                                     updateBoard(newBoard)
+                                    selectedNumber = null
                                 }
                             }
                         },
@@ -765,7 +767,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             containerColor = if (selectedNumber == number) Color.Black else Color.White,
                             contentColor = if (selectedNumber == number) Color.White else Color.Black
                         ),
-                        border = BorderStroke((2 * scale).dp, Color.Black),
+                        border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
@@ -976,31 +978,50 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 title = {
                     Text(
                         text = strings.congratulations,
-                        fontSize = (32 * scale).sp
+                        fontSize = (32 * scale).sp,
+                        lineHeight = (40 * scale).sp
                     )
                 },
                 text = {
                     Text(
                         text = "${strings.completed}\n\n${strings.time} $timerText",
-                        fontSize = (24 * scale).sp
+                        fontSize = (24 * scale).sp,
+                        lineHeight = (32 * scale).sp,
+                        textAlign = TextAlign.Center
                     )
                 },
                 confirmButton = {
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier.height((50 * scale).dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
                     ) {
-                        Text(strings.backToMenu, fontSize = (18 * scale).sp)
+                        // Botó NOU SUDOKU
+                        Button(
+                            onClick = {
+                                showVictoryDialog = false
+                                shouldSaveOnExit = false
+                                GameStateManager.clearGame(context, difficulty)
+                                resetTrigger++
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height((50 * scale).dp)
+                        ) {
+                            Text(strings.newGame, fontSize = (18 * scale).sp)
+                        }
+
+                        // Botó TORNAR AL MENÚ
+                        Button(
+                            onClick = onBack,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height((50 * scale).dp)
+                        ) {
+                            Text(strings.backToMenu, fontSize = (18 * scale).sp)
+                        }
                     }
                 },
-                dismissButton = {
-                    Button(
-                        onClick = { showVictoryDialog = false },
-                        modifier = Modifier.height((50 * scale).dp)
-                    ) {
-                        Text(strings.continue_, fontSize = (18 * scale).sp)
-                    }
-                }
+                dismissButton = null
             )
         }
 
@@ -1018,7 +1039,8 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 text = {
                     Text(
                         text = strings.errorMessage,
-                        fontSize = (24 * scale).sp
+                        fontSize = (24 * scale).sp,
+                        lineHeight = (32 * scale).sp
                     )
                 },
                 confirmButton = {
