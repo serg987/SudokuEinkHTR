@@ -87,7 +87,7 @@ cd sudokueink
 ## Requisits
 - Android 8.0 (API 26) o superior
 - Pantalla e-ink recomanada (funciona en qualsevol pantalla)
-- ~15 MB d'espai lliure
+- ~15-20 MB d'espai lliure
 
 ## Captures de pantalla
 <p>
