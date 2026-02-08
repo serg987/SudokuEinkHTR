@@ -35,7 +35,8 @@ fun StatisticsScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.Start)
                 .height((50 * scale).dp)
-                .width((160 * scale).dp)
+                .width((160 * scale).dp),
+            contentPadding = PaddingValues(0.dp),
         ) {
             Text(
                 strings.back,

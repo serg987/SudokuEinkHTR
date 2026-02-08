@@ -23,7 +23,7 @@ object AdaptiveSizes {
             minOf(screenWidthDp / 950f, screenHeightDp / 550f)
         } else {
             // Vertical: compromís entre mòbils grans i tablets petites
-            minOf(screenWidthDp / 600f, screenHeightDp / 1100f)
-        }.coerceAtMost(1.15f)
+            minOf(screenWidthDp / 800f, screenHeightDp / 1100f)
+        }.coerceIn(0.60f, 1.15f)
     }
 }
