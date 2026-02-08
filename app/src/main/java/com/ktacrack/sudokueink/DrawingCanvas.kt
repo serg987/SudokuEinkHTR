@@ -24,6 +24,7 @@ fun DrawingCanvas(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val scaleFactor = AdaptiveSizes.getScaleFactor()
 
     var paths by remember { mutableStateOf(listOf<Path>()) }
     var currentPath by remember { mutableStateOf(Path()) }
@@ -39,17 +40,20 @@ fun DrawingCanvas(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding((16 * scaleFactor).dp)
     ) {
-        Text("Dibuixa un número:", fontSize = 24.sp)
+        Text(
+            "Dibuixa un número:",
+            fontSize = (24 * scaleFactor).sp
+        )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height((16 * scaleFactor).dp))
 
-        // Canvas de dibuix
+        // Canvas de dibuix escalat
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp)
+                .height((300 * scaleFactor).dp)
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.Offscreen
                 }
@@ -73,12 +77,15 @@ fun DrawingCanvas(
             // Fons NEGRE
             drawRect(Color.Black)
 
+            // Calcular gruix del traç escalat
+            val strokeWidth = 20f * scaleFactor
+
             // Dibuixar tots els paths en BLANC
             paths.forEach { path ->
                 drawPath(
                     path = path,
                     color = Color.White,
-                    style = Stroke(width = 20f)
+                    style = Stroke(width = strokeWidth)
                 )
             }
 
@@ -86,54 +93,85 @@ fun DrawingCanvas(
             drawPath(
                 path = currentPath,
                 color = Color.White,
-                style = Stroke(width = 20f)
+                style = Stroke(width = strokeWidth)
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height((16 * scaleFactor).dp))
 
+        // Botons escalats
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.spacedBy((8 * scaleFactor).dp)
         ) {
             // Botó Esborrar
-            Button(onClick = {
-                paths = emptyList()
-                currentPath = Path()
-            }) {
-                Text("Esborrar", fontSize = 20.sp)
+            Button(
+                onClick = {
+                    paths = emptyList()
+                    currentPath = Path()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height((48 * scaleFactor).dp),
+                contentPadding = PaddingValues((4 * scaleFactor).dp)
+            ) {
+                Text(
+                    "Esborrar",
+                    fontSize = (18 * scaleFactor).sp
+                )
             }
 
             // Botó Reconèixer
-            Button(onClick = {
-                if (paths.isNotEmpty()) {
-                    // Convertir canvas a bitmap
-                    val bitmap = pathsToBitmap(paths, with(density) { 300.dp.toPx().toInt() })
-                    val digit = recognizer.recognizeDigit(bitmap)
-                    onDigitRecognized(digit)
-                }
-            }) {
-                Text("Reconèixer", fontSize = 20.sp)
+            Button(
+                onClick = {
+                    if (paths.isNotEmpty()) {
+                        // Convertir canvas a bitmap amb la mida escalada
+                        val canvasHeightPx = with(density) { (300 * scaleFactor).dp.toPx().toInt() }
+                        val strokeWidth = 20f * scaleFactor
+                        val bitmap = pathsToBitmap(paths, canvasHeightPx, strokeWidth)
+                        val digit = recognizer.recognizeDigit(bitmap)
+                        onDigitRecognized(digit)
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height((48 * scaleFactor).dp),
+                contentPadding = PaddingValues((4 * scaleFactor).dp)
+            ) {
+                Text(
+                    "Reconèixer",
+                    fontSize = (18 * scaleFactor).sp
+                )
             }
 
             // Botó Cancel·lar
-            Button(onClick = onDismiss) {
-                Text("Cancel·lar", fontSize = 20.sp)
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .weight(1f)
+                    .height((48 * scaleFactor).dp),
+                contentPadding = PaddingValues((4 * scaleFactor).dp)
+            ) {
+                Text(
+                    "Cancel·lar",
+                    fontSize = (18 * scaleFactor).sp
+                )
             }
         }
     }
 }
 
-private fun pathsToBitmap(paths: List<Path>, size: Int): Bitmap {
+private fun pathsToBitmap(paths: List<Path>, size: Int, strokeWidth: Float): Bitmap {
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
-    canvas.drawColor(android.graphics.Color.BLACK)  // Fons NEGRE
+    canvas.drawColor(android.graphics.Color.BLACK)
 
     val paint = android.graphics.Paint().apply {
-        color = android.graphics.Color.WHITE  // Traç BLANC
-        strokeWidth = 20f
+        color = android.graphics.Color.WHITE
+        this.strokeWidth = strokeWidth
         style = android.graphics.Paint.Style.STROKE
         strokeCap = android.graphics.Paint.Cap.ROUND
+        isAntiAlias = true
     }
 
     paths.forEach { path ->

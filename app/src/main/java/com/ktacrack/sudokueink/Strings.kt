@@ -56,6 +56,8 @@ interface Strings {
     val newGame: String
     val reset: String
     val pencil: String
+    val pencilOn: String
+    val pencilOff: String
     val notesOn: String
     val notesOff: String
     val erase: String
@@ -104,6 +106,8 @@ object StringsCa : Strings {
     override val newGame = "🔄 Nou Joc"
     override val reset = "Reiniciar Sudoku"
     override val pencil = "Llapis"
+    override val pencilOn = "Llapis ON"
+    override val pencilOff = "Llapis OFF"
     override val notesOn = "Notes ON"
     override val notesOff = "Notes OFF"
     override val erase = "Esborrar"
@@ -148,6 +152,8 @@ object StringsEs : Strings {
     override val newGame = "🔄 Nuevo Juego"
     override val reset = "Reiniciar Sudoku"
     override val pencil = "Lápiz"
+    override val pencilOn = "Lápiz ON"
+    override val pencilOff = "Lápiz OFF"
     override val notesOn = "Notas ON"
     override val notesOff = "Notas OFF"
     override val erase = "Borrar"
@@ -192,6 +198,8 @@ object StringsEn : Strings {
     override val newGame = "🔄 New Game"
     override val reset = "Reset Sudoku"
     override val pencil = "Pencil"
+    override val pencilOn = "Pencil ON"
+    override val pencilOff = "Pencil OFF"
     override val notesOn = "Notes ON"
     override val notesOff = "Notes OFF"
     override val erase = "Erase"

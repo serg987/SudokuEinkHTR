@@ -16,68 +16,74 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun StatisticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val strings = rememberStrings()  // ← Afegeix això
+    val strings = rememberStrings()
     val stats = remember { StatisticsManager.loadStatistics(context) }
+
+    // Factor d'escala adaptatiu
+    val scale = AdaptiveSizes.getScaleFactor()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding((16 * scale).dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height((32 * scale).dp))
 
         Button(
             onClick = onBack,
             modifier = Modifier
                 .align(Alignment.Start)
-                .height(50.dp)
-                .width(160.dp)
+                .height((50 * scale).dp)
+                .width((160 * scale).dp)
         ) {
             Text(
-                strings.back,  // ← Canviat
-                fontSize = 28.sp
+                strings.back,
+                fontSize = (20 * scale).sp
             )
         }
 
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height((36 * scale).dp))
 
         Text(
-            text = strings.statisticsTitle,  // ← Canviat
-            fontSize = 42.sp,
+            text = strings.statisticsTitle,
+            fontSize = (42 * scale).sp,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleLarge
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height((36 * scale).dp))
 
         // Estadístiques per dificultat
         StatisticCard(
-            difficulty = strings.difficultyEasy,  // ← Canviat
+            difficulty = strings.difficultyEasy,
             gamesCompleted = stats.gamesCompletedEasy,
             bestTime = stats.bestTimeEasy,
-            strings = strings  // ← Passa strings
+            strings = strings,
+            scale = scale
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height((16 * scale).dp))
 
         StatisticCard(
-            difficulty = strings.difficultyMedium,  // ← Canviat
+            difficulty = strings.difficultyMedium,
             gamesCompleted = stats.gamesCompletedMedium,
             bestTime = stats.bestTimeMedium,
-            strings = strings  // ← Passa strings
+            strings = strings,
+            scale = scale
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height((16 * scale).dp))
 
         StatisticCard(
-            difficulty = strings.difficultyHard,  // ← Canviat
+            difficulty = strings.difficultyHard,
             gamesCompleted = stats.gamesCompletedHard,
             bestTime = stats.bestTimeHard,
-            strings = strings  // ← Passa strings
+            strings = strings,
+            scale = scale
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height((32 * scale).dp))
 
         // Total de partides
         val totalGames = stats.gamesCompletedEasy +
@@ -87,8 +93,8 @@ fun StatisticsScreen(onBack: () -> Unit) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp)
-                .border(2.dp, Color.Black),
+                .padding((8 * scale).dp)
+                .border((2 * scale).dp, Color.Black),
             colors = CardDefaults.cardColors(
                 containerColor = Color.White
             )
@@ -96,21 +102,19 @@ fun StatisticsScreen(onBack: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding((16 * scale).dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = strings.totalGames,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 36.sp,
-                        color = Color.DarkGray
-                    )
+                    fontSize = (28 * scale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.DarkGray
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
                 Text(
                     text = "$totalGames",
-                    fontSize = 38.sp,
-                    style = MaterialTheme.typography.titleLarge
+                    fontSize = (26 * scale).sp
                 )
             }
         }
@@ -122,13 +126,14 @@ fun StatisticCard(
     difficulty: String,
     gamesCompleted: Int,
     bestTime: Int?,
-    strings: Strings  // ← Afegeix aquest paràmetre
+    strings: Strings,
+    scale: Float
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .border(2.dp, Color.Black),
+            .padding((8 * scale).dp)
+            .border((2 * scale).dp, Color.Black),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
@@ -136,15 +141,16 @@ fun StatisticCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding((16 * scale).dp)
         ) {
             Text(
                 text = difficulty,
-                fontSize = 28.sp,
+                fontSize = (28 * scale).sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height((12 * scale).dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -152,25 +158,25 @@ fun StatisticCard(
             ) {
                 Column {
                     Text(
-                        text = strings.gamesCompleted,  // ← Canviat
-                        fontSize = 22.sp,
+                        text = strings.gamesCompleted,
+                        fontSize = (20 * scale).sp,
                         color = Color.DarkGray
                     )
                     Text(
                         text = "$gamesCompleted",
-                        fontSize = 26.sp
+                        fontSize = (26 * scale).sp
                     )
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = strings.bestTime,  // ← Canviat
-                        fontSize = 22.sp,
+                        text = strings.bestTime,
+                        fontSize = (20 * scale).sp,
                         color = Color.DarkGray
                     )
                     Text(
                         text = bestTime?.let { formatTime(it) } ?: "--:--",
-                        fontSize = 26.sp
+                        fontSize = (26 * scale).sp
                     )
                 }
             }

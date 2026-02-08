@@ -1,5 +1,6 @@
 package com.ktacrack.sudokueink
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,6 +15,14 @@ import com.ktacrack.sudokueink.ui.theme.SudokuEinkTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Forçar vertical en pantalles petites (mòbils)
+        val smallestWidthDp = resources.configuration.smallestScreenWidthDp
+        if (smallestWidthDp < 600) {  // Mòbils: només vertical
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {  // Tablets: rotació lliure
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
 
         // Aplicar optimitzacions e-ink
         EinkOptimizations.disableAnimations(window)

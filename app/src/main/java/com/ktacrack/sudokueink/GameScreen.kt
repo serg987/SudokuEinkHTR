@@ -21,6 +21,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 
 
@@ -29,6 +36,12 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     val context = LocalContext.current
     val strings = rememberStrings()
     var resetTrigger by remember { mutableStateOf(0) }
+    var resetTimerTrigger by remember(resetTrigger) { mutableStateOf(0) } // Reiniciar timer
+    var isPaused by remember(resetTrigger) { mutableStateOf(false) } // Pause accessible
+    var shouldSaveOnExit by remember(resetTrigger) { mutableStateOf(true) }
+
+    // Factor d'escala adaptatiu
+    val scale = AdaptiveSizes.getScaleFactor()
 
     // Detectar orientació
     val configuration = LocalConfiguration.current
@@ -37,9 +50,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     // Intentar carregar partida guardada
     val savedGame = remember(resetTrigger) {
         if (resetTrigger == 0) {
-            GameStateManager.loadGame(context)?.takeIf {
-                it.difficulty == difficulty.name
-            }
+            GameStateManager.loadGame(context, difficulty)  // ← Passa difficulty
         } else null
     }
 
@@ -84,10 +95,24 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     var showVictoryDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showErrorDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showDrawingCanvas by remember { mutableStateOf(false) }
+    var isPencilMode by remember(resetTrigger) { mutableStateOf(false) }
 
     // Temps inicial (restaurar si hi ha partida guardada)
     var startTimeOffset by remember(resetTrigger) { mutableStateOf(savedGame?.elapsedSeconds ?: 0) }
-    val timerText = rememberTimer(resetTrigger, startTimeOffset)
+
+    // Variable per guardar els segons actuals
+    var currentElapsedSeconds by remember(resetTrigger) { mutableStateOf(startTimeOffset) }
+
+    val timerText = rememberTimer(
+        resetTrigger = resetTrigger,
+        startOffset = startTimeOffset,
+        isPaused = isPaused,
+        resetTimer = resetTimerTrigger,
+        onTimeUpdate = { elapsedSeconds ->
+            currentElapsedSeconds = elapsedSeconds
+        }
+    )
+
 
     var hintsRemaining by remember(resetTrigger) {
         mutableStateOf(
@@ -105,10 +130,6 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     // Guardar automàticament cada canvi
     LaunchedEffect(boardState, hintsRemaining) {
         if (!showVictoryDialog) {
-            val currentSeconds = timerText.split(":").let {
-                it[0].toInt() * 60 + it[1].toInt()
-            }
-
             val savedState = SavedGameState(
                 difficulty = difficulty.name,
                 board = boardState.map { row ->
@@ -121,17 +142,41 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                     }
                 },
                 solution = solution,
-                elapsedSeconds = currentSeconds,
+                elapsedSeconds = currentElapsedSeconds,  // ← Usar la variable
                 hintsRemaining = hintsRemaining
             )
             GameStateManager.saveGame(context, savedState)
         }
     }
 
+    // Guardar quan l'usuari surt de la pantalla
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!showVictoryDialog && shouldSaveOnExit) {
+                val savedState = SavedGameState(
+                    difficulty = difficulty.name,
+                    board = boardState.map { row ->
+                        row.map { cell ->
+                            SavedCell(
+                                value = cell.value,
+                                isFixed = cell.isFixed,
+                                notes = cell.notes.toList()
+                            )
+                        }
+                    },
+                    solution = solution,
+                    elapsedSeconds = currentElapsedSeconds,  // ← Usar la variable
+                    hintsRemaining = hintsRemaining
+                )
+                GameStateManager.saveGame(context, savedState)
+            }
+        }
+    }
+
     // Esborrar partida guardada quan es completa
     LaunchedEffect(showVictoryDialog) {
         if (showVictoryDialog) {
-            GameStateManager.clearGame(context)
+            GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
         }
     }
 
@@ -157,11 +202,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         if (isComplete) {
             if (isCorrect) {
                 // Registrar estadística
-                val timeInSeconds = timerText.split(":").let {
-                    it[0].toInt() * 60 + it[1].toInt()
-                }
-                StatisticsManager.recordCompletion(context, difficulty, timeInSeconds)
-
+                StatisticsManager.recordCompletion(context, difficulty, currentElapsedSeconds)
                 showVictoryDialog = true
             } else {
                 showErrorDialog = true
@@ -174,7 +215,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding((16 * scale).dp)
         ) {
             // COLUMNA ESQUERRA: Botó Back + Sudoku
             Column(
@@ -183,17 +224,18 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.Start
             ) {
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height((36 * scale).dp))
 
                 // Botó Back a dalt a l'esquerra
-                Button(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .width(160.dp)
-                        .height(50.dp)
-                ) {
-                    Text(strings.back, fontSize = 28.sp)
-                }
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .offset(x = (10 * scale).dp)
+                            .width((160 * scale).dp)
+                            .height((50 * scale).dp)
+                    ) {
+                        Text(strings.back, fontSize = (20 * scale).sp)
+                    }
 
                 Spacer(modifier = Modifier.height(0.dp))
 
@@ -208,10 +250,40 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             Difficulty.MEDIUM -> strings.difficultyMedium
                             Difficulty.HARD -> strings.difficultyHard
                         },
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 28.sp)
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = (24 * scale).sp)
                     )
 
-                    Text(text = "⏱️ $timerText", fontSize = 28.sp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        IconButton(
+                            onClick = { isPaused = !isPaused },
+                            modifier = Modifier.size((36 * scale).dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                contentDescription = if (isPaused) "Reprendre" else "Pausar",
+                                modifier = Modifier.size((20 * scale).dp)
+                            )
+                        }
+
+                        Text(text = timerText, fontSize = (20 * scale).sp)
+
+                        IconButton(
+                            onClick = {
+                                startTimeOffset = 0
+                                resetTimerTrigger++
+                            },
+                            modifier = Modifier.size((36 * scale).dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Reiniciar temps",
+                                modifier = Modifier.size((20 * scale).dp)
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(0.dp))
@@ -229,14 +301,22 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         selectedCell = selectedCell,
                         onCellClick = { row, col ->
                             if (!boardState[row][col].isFixed) {
-                                selectedCell = Pair(row, col)
+                                if (isPencilMode) {
+                                    // Mode llapis: obrir canvas directament
+                                    selectedCell = Pair(row, col)
+                                    showDrawingCanvas = true
+                                } else {
+                                    // Mode normal: només seleccionar
+                                    selectedCell = Pair(row, col)
+                                }
                             }
                         }
                     )
+
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width((16 * scale).dp))
 
             // COLUMNA DRETA: Controls
             Column(
@@ -247,20 +327,21 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height((36 * scale).dp))
 
                 // Nou Joc
                 Button(
                     onClick = {
-                        GameStateManager.clearGame(context)
+                        shouldSaveOnExit = false
+                        GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
                         resetTrigger++
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
                 ) {
-                    Text(strings.newGame, fontSize = 28.sp)
+                    Text(strings.newGame, fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height((4 * scale).dp))
 
                 // BOTÓ REINICIAR
                 Button(
@@ -278,13 +359,13 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             Difficulty.HARD -> 1
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
                 ) {
-                    Text(strings.reset, fontSize = 28.sp)
+                    Text(strings.reset, fontSize = (20 * scale).sp)
                 }
 
 
-                Spacer(modifier = Modifier.height(120.dp))
+                Spacer(modifier = Modifier.height((20 * scale).dp))
 
                 // Números (grid 3x3)
                 Column {
@@ -327,50 +408,64 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                         }
                                     },
                                     modifier = Modifier
-                                        .size(70.dp)
-                                        .padding(2.dp),
+                                        .size((50 * scale).dp)
+                                        .padding((2 * scale).dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (selectedNumber == number) Color.Black else Color.White,
                                         contentColor = if (selectedNumber == number) Color.White else Color.Black
                                     ),
-                                    border = BorderStroke(2.dp, Color.Black)
+                                    border = BorderStroke((2 * scale).dp, Color.Black),
+                                    contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Text(text = number.toString(), fontSize = 28.sp)
+                                    Text(text = number.toString(), fontSize = (32 * scale).sp)
                                 }
                             }
                         }
                         // Afegir espai entre files (excepte després de l'última)
                         if (rowNum < 2) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height((8 * scale).dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height((24 * scale).dp))
 
                 // 5 botons en columna
+                // BOTÓ LLAPIS MODE
                 Button(
-                    onClick = { showDrawingCanvas = true },
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    onClick = { isPencilMode = !isPencilMode },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isPencilMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (isPencilMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                    ),
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(strings.pencil, fontSize = 28.sp)
+                    Text(if (isPencilMode) strings.pencilOn else strings.pencilOff,
+                        fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
 
                 Button(
                     onClick = { isNotesMode = !isNotesMode },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isNotesMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         contentColor = if (isNotesMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(if (isNotesMode) strings.notesOn else strings.notesOff, fontSize = 28.sp)
+                    Text(if (isNotesMode) strings.notesOn else strings.notesOff,
+                        fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
 
                 Button(
                     onClick = {
@@ -389,12 +484,12 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
                 ) {
-                    Text(strings.erase, fontSize = 28.sp)
+                    Text(strings.erase, fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
 
                 Button(
                     onClick = {
@@ -424,19 +519,21 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         }
                     },
                     enabled = hintsRemaining > 0,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surface,
                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text("${strings.hint} ($hintsRemaining)", fontSize = 28.sp)
+                    Text("${strings.hint} ($hintsRemaining)", fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
 
                 Button(
                     onClick = {
@@ -445,16 +542,18 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         }
                     },
                     enabled = moveHistory.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surface,
                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(strings.undo, fontSize = 28.sp)
+                    Text(strings.undo, fontSize = (20 * scale).sp)
                 }
             }
         }
@@ -463,10 +562,10 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding((16 * scale).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height((38 * scale).dp))
 
         // FILA SUPERIOR: Botó tornar (esquerra) i Nou Joc (dreta)
             Row(
@@ -476,32 +575,35 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 Button(
                     onClick = onBack,
                     modifier = Modifier
-                        .height(50.dp)
-                        .width(160.dp)
+                        .height((50 * scale).dp)
+                        .width((160 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Text(
                         strings.back,
-                        fontSize = 28.sp
+                        fontSize = (20 * scale).sp
                     )
                 }
 
                 Button(
                     onClick = {
-                        GameStateManager.clearGame(context)
+                        shouldSaveOnExit = false
+                        GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
                         resetTrigger++
                     },
                     modifier = Modifier
-                        .height(50.dp)
-                        .width(180.dp)
+                        .height((50 * scale).dp)
+                        .width((180 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Text(
                         strings.newGame,
-                        fontSize = 28.sp
+                        fontSize = (20 * scale).sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(0.dp))
+            Spacer(modifier = Modifier.height((4 * scale).dp))
 
             // FILA AMB NIVELL/TIMER CENTRAT I BOTÓ REINICIAR A LA DRETA
             Row(
@@ -509,7 +611,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.width(140.dp)) // Espai per equilibrar
+                Spacer(modifier = Modifier.width((180 * scale).dp)) // Espai per equilibrar
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -521,17 +623,43 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             Difficulty.HARD -> strings.difficultyHard
                         },
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = 28.sp
+                            fontSize = (24 * scale).sp
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height((0 * scale).dp))
 
-                    Text(
-                        text = "⏱️ $timerText",
-                        fontSize = 28.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        IconButton(
+                            onClick = { isPaused = !isPaused },
+                            modifier = Modifier.size((36 * scale).dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                contentDescription = if (isPaused) "Reprendre" else "Pausar",
+                                modifier = Modifier.size((20 * scale).dp)
+                            )
+                        }
+
+                        Text(text = timerText, fontSize = (20 * scale).sp)
+
+                        IconButton(
+                            onClick = {
+                                startTimeOffset = 0
+                                resetTimerTrigger++
+                            },
+                            modifier = Modifier.size((36 * scale).dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Reiniciar temps",
+                                modifier = Modifier.size((20 * scale).dp)
+                            )
+                        }
+                    }
                 }
 
                 Button(
@@ -550,14 +678,15 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         }
                     },
                     modifier = Modifier
-                        .height(50.dp)
-                        .width(240.dp)
+                        .height((50 * scale).dp)
+                        .width((180 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
-                    Text(strings.reset, fontSize = 28.sp)
+                    Text(strings.reset, fontSize = (20 * scale).sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height((16 * scale).dp))
 
             SudokuBoard(
                 board = boardState,
@@ -565,18 +694,25 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 selectedCell = selectedCell,
                 onCellClick = { row, col ->
                     if (!boardState[row][col].isFixed) {
-                        selectedCell = Pair(row, col)
+                        if (isPencilMode) {
+                            // Mode llapis: obrir canvas directament
+                            selectedCell = Pair(row, col)
+                            showDrawingCanvas = true
+                        } else {
+                            // Mode normal: només seleccionar
+                            selectedCell = Pair(row, col)
+                        }
                     }
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height((16 * scale).dp))
 
             // Només els números (sense botó de notes)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = (3 * scale).dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 for (number in 1..9) {
@@ -608,22 +744,23 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                                 }
                             }
                         },
-                        modifier = Modifier.size(60.dp),
+                        modifier = Modifier.size((52 * scale).dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (selectedNumber == number) Color.Black else Color.White,
                             contentColor = if (selectedNumber == number) Color.White else Color.Black
                         ),
-                        border = BorderStroke(2.dp, Color.Black)
+                        border = BorderStroke((2 * scale).dp, Color.Black),
+                        contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
                             text = number.toString(),
-                            fontSize = 28.sp
+                            fontSize = (40 * scale).sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height((12 * scale).dp))
 
             // FILA DE 4 BOTONS: Notes, Esborrar, Pista, Desfer
             Row(
@@ -632,36 +769,41 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             ) {
                 // BOTÓ LLAPIS (NOU)
                 Button(
-                    onClick = { showDrawingCanvas = true },
+                    onClick = { isPencilMode = !isPencilMode },
                     modifier = Modifier
-                        .height(55.dp)
+                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = 2.dp),
+                        .padding(horizontal = (1 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = MaterialTheme.colorScheme.onSecondary
+                        containerColor = if (isPencilMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (isPencilMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(strings.pencil, fontSize = 20.sp)
+                    Text(
+                        if (isPencilMode) strings.pencilOn else strings.pencilOff,
+                        fontSize = (20 * scale).sp
+                    )
                 }
 
                 // BOTÓ NOTES
                 Button(
                     onClick = { isNotesMode = !isNotesMode },
                     modifier = Modifier
-                        .height(55.dp)
+                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = 2.dp),
+                        .padding(horizontal = (1 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isNotesMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         contentColor = if (isNotesMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
                     Text(
                         text = if (isNotesMode) strings.notesOn else strings.notesOff,
-                        fontSize = 20.sp
+                        fontSize = (20 * scale).sp
                     )
                 }
 
@@ -684,16 +826,17 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         }
                     },
                     modifier = Modifier
-                        .height(55.dp)
+                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = 2.dp),
+                        .padding(horizontal = (1 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(strings.erase, fontSize = 20.sp)
+                    Text(strings.erase, fontSize = (20 * scale).sp)
                 }
 
                 // BOTÓ PISTA
@@ -727,18 +870,19 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                     },
                     enabled = hintsRemaining > 0,
                     modifier = Modifier
-                        .height(55.dp)
+                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = 2.dp),
+                        .padding(horizontal = (1 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surface,
                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text("${strings.hint} ($hintsRemaining)", fontSize = 20.sp)
+                    Text("${strings.hint} ($hintsRemaining)", fontSize = (20 * scale).sp)
                 }
 
                 // BOTÓ DESFER
@@ -750,18 +894,19 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                     },
                     enabled = moveHistory.isNotEmpty(),
                     modifier = Modifier
-                        .height(55.dp)
+                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = 2.dp),
+                        .padding(horizontal = (1 * scale).dp),
+                    contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surface,
                         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     ),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
+                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
-                    Text(strings.undo, fontSize = 20.sp)
+                    Text(strings.undo, fontSize = (20 * scale).sp)
                 }
             }
         }
@@ -770,7 +915,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         if (showDrawingCanvas) {
             AlertDialog(
                 onDismissRequest = { showDrawingCanvas = false },
-                title = { Text("Reconeixement de dígits", fontSize = 24.sp) },
+                title = { Text("Reconeixement de dígits", fontSize = (24 * scale).sp) },
                 text = {
                     DrawingCanvas(
                         onDigitRecognized = { digit ->
@@ -815,29 +960,29 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 title = {
                     Text(
                         text = strings.congratulations,
-                        fontSize = 32.sp
+                        fontSize = (32 * scale).sp
                     )
                 },
                 text = {
                     Text(
                         text = "${strings.completed}\n\n${strings.time} $timerText",
-                        fontSize = 32.sp
+                        fontSize = (24 * scale).sp
                     )
                 },
                 confirmButton = {
                     Button(
                         onClick = onBack,
-                        modifier = Modifier.height(50.dp)
+                        modifier = Modifier.height((50 * scale).dp)
                     ) {
-                        Text(strings.backToMenu, fontSize = 24.sp)
+                        Text(strings.backToMenu, fontSize = (18 * scale).sp)
                     }
                 },
                 dismissButton = {
                     Button(
                         onClick = { showVictoryDialog = false },
-                        modifier = Modifier.height(50.dp)
+                        modifier = Modifier.height((50 * scale).dp)
                     ) {
-                        Text(strings.continue_, fontSize = 24.sp)
+                        Text(strings.continue_, fontSize = (18 * scale).sp)
                     }
                 }
             )
@@ -850,22 +995,22 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 title = {
                     Text(
                         text = strings.error,
-                        fontSize =32.sp,
+                        fontSize = (32 * scale).sp,
                         color = Color.Red
                     )
                 },
                 text = {
                     Text(
                         text = strings.errorMessage,
-                        fontSize = 32.sp
+                        fontSize = (24 * scale).sp
                     )
                 },
                 confirmButton = {
                     Button(
                         onClick = { showErrorDialog = false },
-                        modifier = Modifier.height(50.dp)
+                        modifier = Modifier.height((50 * scale).dp)
                     ) {
-                        Text(strings.review, fontSize = 24.sp)
+                        Text(strings.review, fontSize = (18 * scale).sp)
                     }
                 }
             )
@@ -879,10 +1024,25 @@ fun SudokuBoard(
     selectedCell: Pair<Int, Int>?,
     onCellClick: (Int, Int) -> Unit
 ) {
+    val scale = AdaptiveSizes.getScaleFactor()
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+
+    // Calcular mida real de cada cel·la
+    val cellSize = (screenWidthDp - 32) / 9  // Restar padding i dividir per 9
+    val noteScale = (cellSize / 40f).coerceIn(0.2f, 2.2f)  // Escala específica per notes
+
+    // Padding adaptatiu
+    val notePadding = when {
+        screenWidthDp < 360 -> (2 * scale).dp
+        screenWidthDp < 600 -> (2 * scale).dp
+        else -> (8 * scale).dp
+    }
+
     Column(
         modifier = Modifier
             .aspectRatio(1f)
-            .border(3.dp, Color.Black)
+            .border((3 * scale).dp, Color.Black)
     ) {
         for (row in 0 until 9) {
             Row(modifier = Modifier.weight(1f)) {
@@ -894,19 +1054,19 @@ fun SudokuBoard(
                     val textColor = when {
                         cell.isFixed -> Color.Black  // Números inicials
                         cell.value == 0 -> Color.Black  // Cel·la buida
-                        else -> Color.Blue  // Tots els números de l'usuari en blau
+                        else -> Color(0xFF2196F3)  // Tots els números de l'usuari en blau
                     }
 
                     val topBorder = when {
-                        row == 3 || row == 6 -> 2.dp
-                        else -> 0.5.dp
+                        row == 3 || row == 6 -> (2 * scale).dp
+                        else -> (0.5 * scale).dp
                     }
                     val leftBorder = when {
-                        col == 3 || col == 6 -> 2.dp
-                        else -> 0.5.dp
+                        col == 3 || col == 6 -> (2 * scale).dp
+                        else -> (0.5 * scale).dp
                     }
-                    val bottomBorder = if (row == 8) 0.dp else 0.5.dp
-                    val rightBorder = if (col == 8) 0.dp else 0.5.dp
+                    val bottomBorder = if (row == 8) 0.dp else (0.5 * scale).dp
+                    val rightBorder = if (col == 8) 0.dp else (0.5 * scale).dp
 
                     Box(
                         modifier = Modifier
@@ -956,25 +1116,29 @@ fun SudokuBoard(
                             // Mostrar número principal
                             Text(
                                 text = cell.value.toString(),
-                                fontSize = 36.sp,
+                                fontSize = (30 * scale).sp,
                                 color = textColor,
-                                fontWeight = if (cell.isFixed) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (cell.isFixed) FontWeight.Bold else FontWeight.Light
                             )
                         } else if (cell.notes.isNotEmpty()) {
                             // Mostrar notes en una graella 3x3
                             Box(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(notePadding),  // ← Padding ajustat a mida
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.SpaceEvenly,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy((0 * noteScale).dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     for (rowNotes in 0 until 3) {
                                         Row(
-                                            modifier = Modifier.weight(1f),
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(1f),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,  // ← SIN espais entre columnes
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             for (colNotes in 0 until 3) {
@@ -983,11 +1147,16 @@ fun SudokuBoard(
                                                     modifier = Modifier.weight(1f),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    if (cell.notes.contains(noteNumber)) {
-                                                        Text(
-                                                            text = noteNumber.toString(),
-                                                            fontSize = 32.sp,
-                                                            color = Color.Gray
+                                                    Text(
+                                                        text = if (cell.notes.contains(noteNumber)) {
+                                                            noteNumber.toString()  // ← Mostra el número
+                                                        } else {
+                                                            ""  // ← Espai buit però manté la posició
+                                                        },
+                                                        fontSize = (10 * noteScale).sp,
+                                                        color = Color.Gray,
+                                                        textAlign = TextAlign.Center,
+                                                        lineHeight = (8 * noteScale).sp
                                                         )
                                                     }
                                                 }
@@ -1002,17 +1171,25 @@ fun SudokuBoard(
             }
         }
     }
-}
 
 @Composable
-fun rememberTimer(resetTrigger: Int = 0, startOffset: Int = 0): String {
-    var elapsedTime by remember(resetTrigger) { mutableStateOf(startOffset) }
+fun rememberTimer(
+    resetTrigger: Int = 0,
+    startOffset: Int = 0,
+    isPaused: Boolean = false,
+    resetTimer: Int = 0,
+    onTimeUpdate: (Int) -> Unit = {}  // ← NOVA callback
+): String {
+    var elapsedTime by remember(resetTrigger, resetTimer) { mutableStateOf(startOffset) }
 
-    LaunchedEffect(resetTrigger) {
+    LaunchedEffect(resetTrigger, isPaused, resetTimer) {
         val startTime = System.currentTimeMillis() - (startOffset * 1000L)
         while (true) {
             kotlinx.coroutines.delay(1000)
-            elapsedTime = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+            if (!isPaused) {
+                elapsedTime = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+                onTimeUpdate(elapsedTime)  // ← Notificar el temps actual
+            }
         }
     }
 
@@ -1020,3 +1197,6 @@ fun rememberTimer(resetTrigger: Int = 0, startOffset: Int = 0): String {
     val seconds = elapsedTime % 60
     return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }
+
+
+

@@ -23,17 +23,34 @@ data class SavedCell(
 
 object GameStateManager {
     private const val PREFS_NAME = "sudoku_game_state"
-    private const val KEY_GAME_STATE = "current_game"
+
+    // Claus específiques per cada dificultat
+    private fun getKeyForDifficulty(difficulty: Difficulty): String {
+        return "game_state_${difficulty.name}"
+    }
 
     fun saveGame(context: Context, state: SavedGameState) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = Json.encodeToString(state)
-        prefs.edit().putString(KEY_GAME_STATE, json).apply()
+
+        // Convertir String a Difficulty
+        val difficulty = when (state.difficulty) {
+            "EASY" -> Difficulty.EASY
+            "MEDIUM" -> Difficulty.MEDIUM
+            "HARD" -> Difficulty.HARD
+            else -> return
+        }
+
+        // Guardar amb clau específica
+        val key = getKeyForDifficulty(difficulty)
+        prefs.edit().putString(key, json).apply()
     }
 
-    fun loadGame(context: Context): SavedGameState? {
+    fun loadGame(context: Context, difficulty: Difficulty): SavedGameState? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val json = prefs.getString(KEY_GAME_STATE, null) ?: return null
+        val key = getKeyForDifficulty(difficulty)
+        val json = prefs.getString(key, null) ?: return null
+
         return try {
             Json.decodeFromString<SavedGameState>(json)
         } catch (e: Exception) {
@@ -41,8 +58,15 @@ object GameStateManager {
         }
     }
 
-    fun clearGame(context: Context) {
+    fun clearGame(context: Context, difficulty: Difficulty) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().remove(KEY_GAME_STATE).apply()
+        val key = getKeyForDifficulty(difficulty)
+        prefs.edit().remove(key).apply()
+    }
+
+    // Funció opcional per esborrar TOTES les partides
+    fun clearAllGames(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
     }
 }
