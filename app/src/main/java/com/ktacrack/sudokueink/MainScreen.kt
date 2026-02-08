@@ -44,7 +44,7 @@ fun MainScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = (32 * scale).dp, bottom = (16 * scale).dp),
+                    .padding(top = (42 * scale).dp, bottom = (16 * scale).dp),
                 horizontalAlignment = Alignment.End
             ) {
                 // Botons d'idioma

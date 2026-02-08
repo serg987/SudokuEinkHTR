@@ -25,6 +25,7 @@ fun DrawingCanvas(
     val context = LocalContext.current
     val density = LocalDensity.current
     val scaleFactor = AdaptiveSizes.getScaleFactor()
+    val strings = rememberStrings()
 
     var paths by remember { mutableStateOf(listOf<Path>()) }
     var currentPath by remember { mutableStateOf(Path()) }
@@ -43,7 +44,7 @@ fun DrawingCanvas(
             .padding((16 * scaleFactor).dp)
     ) {
         Text(
-            "Dibuixa un número:",
+            strings.drawNumber,
             fontSize = (24 * scaleFactor).sp
         )
 
@@ -116,7 +117,7 @@ fun DrawingCanvas(
                 contentPadding = PaddingValues((4 * scaleFactor).dp)
             ) {
                 Text(
-                    "Esborrar",
+                    strings.erase,
                     fontSize = (18 * scaleFactor).sp
                 )
             }
@@ -139,7 +140,7 @@ fun DrawingCanvas(
                 contentPadding = PaddingValues((4 * scaleFactor).dp)
             ) {
                 Text(
-                    "Reconèixer",
+                    strings.recognize,
                     fontSize = (18 * scaleFactor).sp
                 )
             }
@@ -153,7 +154,7 @@ fun DrawingCanvas(
                 contentPadding = PaddingValues((4 * scaleFactor).dp)
             ) {
                 Text(
-                    "Cancel·lar",
+                    strings.cancel,
                     fontSize = (18 * scaleFactor).sp
                 )
             }

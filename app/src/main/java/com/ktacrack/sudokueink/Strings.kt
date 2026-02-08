@@ -64,6 +64,11 @@ interface Strings {
     val hint: String
     val undo: String
 
+    // Finestra escriure número
+    val drawNumber: String
+    val recognize: String
+    val cancel: String
+
     // Dialogs
     val congratulations: String
     val completed: String
@@ -114,6 +119,10 @@ object StringsCa : Strings {
     override val hint = "Pista"
     override val undo = "Desfer"
 
+    override val drawNumber = "Dibuixa un número:"
+    override val recognize = "Reconèixer"
+    override val cancel = "Cancel·lar"
+
     override val congratulations = "🎉 Felicitats!"
     override val completed = "Has completat el Sudoku correctament!"
     override val time = "Temps:"
@@ -160,6 +169,10 @@ object StringsEs : Strings {
     override val hint = "Pista"
     override val undo = "Deshacer"
 
+    override val drawNumber = "Dibuja un número:"
+    override val recognize = "Reconocer"
+    override val cancel = "Cancelar"
+
     override val congratulations = "🎉 ¡Felicidades!"
     override val completed = "¡Has completado el Sudoku correctamente!"
     override val time = "Tiempo:"
@@ -205,6 +218,10 @@ object StringsEn : Strings {
     override val erase = "Erase"
     override val hint = "Hint"
     override val undo = "Undo"
+
+    override val drawNumber = "Draw a number:"
+    override val recognize = "Recognize"
+    override val cancel = "Cancel"
 
     override val congratulations = "🎉 Congratulations!"
     override val completed = "You have completed the Sudoku correctly!"
