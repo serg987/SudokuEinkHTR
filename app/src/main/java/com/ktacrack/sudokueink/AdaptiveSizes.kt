@@ -19,9 +19,11 @@ object AdaptiveSizes {
         val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         return if (isLandscape) {
-            minOf(screenWidthDp / 950f, screenHeightDp / 550f)  // ← De 800/480 a 900/540
+            // Horitzontal: tablet referència
+            minOf(screenWidthDp / 950f, screenHeightDp / 550f)
         } else {
-            minOf(screenWidthDp / 550f, screenHeightDp / 950f)  // ← De 393/852 a 450/950
+            // Vertical: compromís entre mòbils grans i tablets petites
+            minOf(screenWidthDp / 600f, screenHeightDp / 1100f)
         }.coerceAtMost(1.15f)
     }
 }
