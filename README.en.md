@@ -24,16 +24,48 @@ This is the only official repository for Sudoku E-ink. Only download the app fro
 
 ## Features
 
-- 🎮 **3 difficulty levels:** Easy, Medium and Hard
-- 🧩 **Smart Sudoku generator** powered by TensorFlow Lite
-- ⏱️ **Built-in timer** to track your solving time
-- 📊 **Detailed statistics:** completed games and best time per difficulty
-- 🔄 **Restart game** at any moment
-- 📱 **E-ink optimized design** with high contrast and clean interface
-- 🌍 **Multilingual:**
-  - Català
-  - Español
-  - English
+### 🎮 Gameplay
+- **3 difficulty levels:** Easy, Medium, and Hard
+- **Smart Sudoku generator** with optimized algorithms
+- **Hint system** limited by difficulty (5/3/1)
+- **Notes mode** to mark possible numbers
+- **Undo moves** with unlimited history
+- **Reset game** at any time
+
+### ⏱️ Timer and Game Management
+- **Timer with controls:** pause, resume, and restart time
+- **Independent saved games** for each difficulty level
+- **Auto-save** when exiting the game
+- **Automatic recovery** of games in progress
+
+### ✏️ Handwriting Recognition
+- **Global pencil mode** for quick recognition
+- **Handwritten digit recognition** with TensorFlow Lite
+- **Adaptive scaled drawing canvas** for all screen types
+- **Perfect integration** with notes mode
+
+### 📊 Statistics
+- **Completed games** per difficulty
+- **Best time** recorded for each level
+- **Persistent history** of results
+
+### 🎨 Optimized for E-ink
+- **High contrast design** specific for electronic ink displays
+- **Clear visual differentiation:** fixed numbers (black + bold) vs user (gray + light)
+- **Optimized colors** for black and white
+- **Differentiated cell backgrounds** for better readability
+- **Clean interface** without distractions
+
+### 📱 Adaptive Experience
+- **Smart scaling** for all screen types (phones, tablets)
+- **Adaptive layout:** vertical for phones, horizontal for tablets
+- **Optimized controls** for each screen size
+- **Proportionally scaled buttons** to device
+
+### 🌍 Multilingual
+- **Català** (CA)
+- **Español** (ES)
+- **English** (EN)
 
 ## Installation
 
@@ -73,8 +105,7 @@ cd sudokueink
 **Recommended IDE:** Android Studio
 
 ## Project structure:
-```
-sudoku-eink/
+```sudoku-eink/
 ├── app/
 │   └── src/
 │       └── main/
@@ -95,24 +126,30 @@ sudoku-eink/
 │           │   ├── Strings.kt
 │           │   ├── Navigation.kt
 │           │   ├── DrawingCanvas.kt
-│           │   ├── EinkOptimizations.kt
 │           │   ├── DigitRecognizer.kt
+│           │   ├── AdaptiveSizes.kt
+│           │   ├── EinkOptimizations.kt
 │           │   └── ThemeManager.kt
 │           ├── res/
 │           │   └── mipmap/
 │           │       ├── ic_launcher.png
 │           │       └── ic_launcher_round.png
 │           ├── assets/
-│           │   └── sudoku_model.tflite (si tens model TensorFlow)
+│           │   └── mnist.tflite
 │           └── AndroidManifest.xml
 ├── gradle/
 ├── images/
-│   ├── screenshot1.png
-│   └── screenshot2.png
+│   ├── Menu_catala.png
+│   ├── Menu_english.png
+│   ├── Joc_catala.png
+│   ├── Joc_english.png
+│   ├── Stats_catala.png
+│   └── Stats_english.png
 ├── .gitignore
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── LICENSE
+├── CHANGELOG.md
 ├── README.md
 └── README.en.md
 ```
