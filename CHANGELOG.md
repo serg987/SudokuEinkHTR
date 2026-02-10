@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Changelog
+
+## [1.2.0] - 2026-02-10
+
+### Added
+- Completely random Sudoku generation algorithm from scratch
+- Infinite puzzle variety with access to 10^16+ different puzzles
+- Random backtracking solver for solution generation
+
+### Changed
+- Replaced fixed-base generation with fully randomized approach
+- Each puzzle now completely unique and unrelated to previous ones
+- Improved puzzle diversity across all difficulty levels
+
+### Technical
+- Version code: 2 → 3
+- Version name: 1.1.0 → 1.2.0
+- New functions: `generateRandomSolution()`, `fillBoardRandomly()`, `isValidPlacement()`
+- Removed fixed solution base dependency
+
+---
+
 ## [1.1.0] - 2026-02-09
 ### Fixed
 - Puzzles with multiple solutions issue
@@ -16,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improved
 - Enhanced puzzle generation algorithm
 - Better difficulty consistency
+
+---
 
 ## [1.1] - 2026-02-08
 ### Fixed
@@ -46,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `AdaptiveSizes.kt` for intelligent screen scaling
 - Enhanced `GameState.kt` with per-difficulty save management
 - Improved timer implementation with pause/resume functionality
+
+---
 
 ## [1.0.0] - 2026-02-07
 ### Added
