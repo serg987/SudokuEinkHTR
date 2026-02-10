@@ -14,3 +14,9 @@ data class SudokuGame(
 enum class Difficulty {
     EASY, MEDIUM, HARD
 }
+
+enum class GameMode {
+    NORMAL,
+    ATTACK
+}
+

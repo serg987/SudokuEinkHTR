@@ -1,5 +1,6 @@
 package com.ktacrack.sudokueink
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -14,19 +15,24 @@ import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun MainScreen(
-    onDifficultySelected: (Difficulty) -> Unit = {},
+    currentMode: String? = null, // ← NOU: Rep el mode des de Navigation
+    onModeSelected: (String) -> Unit = {}, // ← NOU: Per navegar al submenu
+    onGameModeSelected: (GameMode, Difficulty) -> Unit = { _, _ -> },
     onStatisticsClick: () -> Unit = {},
+    onBackToMainMenu: () -> Unit = {}, // ← NOU: Per tornar des del submenu
     onThemeChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     var currentLanguage by remember { mutableStateOf(LanguageManager.loadLanguage(context)) }
     var isDarkTheme by remember { mutableStateOf(ThemeManager.loadDarkMode(context)) }
-
-    // Factor d'escala adaptatiu
     val scale = AdaptiveSizes.getScaleFactor()
 
-    // Aquesta key farà que tot es recompongui quan canviï l'idioma
-    key(currentLanguage, isDarkTheme) {
+    // ✅ Gestió del botó enrere d'Android
+    BackHandler(enabled = currentMode != null) {
+        onBackToMainMenu()
+    }
+
+    key(currentLanguage, isDarkTheme, currentMode) {
         val strings = when (currentLanguage) {
             Language.CATALAN -> StringsCa
             Language.SPANISH -> StringsEs
@@ -40,183 +46,243 @@ fun MainScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Selector d'idioma i tema a dalt a la dreta
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = (42 * scale).dp, bottom = (16 * scale).dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                // Botons d'idioma
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+            // ✅ SI currentMode == null: Mostrar menú principal
+            if (currentMode == null) {
+                // Selector d'idioma i tema a dalt a la dreta
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = (42 * scale).dp, bottom = (16 * scale).dp),
+                    horizontalAlignment = Alignment.End
                 ) {
-                    // Botó CA
-                    Button(
-                        onClick = {
-                            currentLanguage = Language.CATALAN
-                            LanguageManager.saveLanguage(context, Language.CATALAN)
-                        },
-                        modifier = Modifier.size((60 * scale).dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (currentLanguage == Language.CATALAN) Color.Black else Color.White,
-                            contentColor = if (currentLanguage == Language.CATALAN) Color.White else Color.Black
-                        ),
-                        border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
-                        contentPadding = PaddingValues(0.dp)
+                    // Botons d'idioma
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
                     ) {
-                        Text("CA", fontSize = (34 * scale).sp)
+                        Button(
+                            onClick = {
+                                currentLanguage = Language.CATALAN
+                                LanguageManager.saveLanguage(context, Language.CATALAN)
+                            },
+                            modifier = Modifier.size((60 * scale).dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguage == Language.CATALAN) Color.Black else Color.White,
+                                contentColor = if (currentLanguage == Language.CATALAN) Color.White else Color.Black
+                            ),
+                            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("CA", fontSize = (34 * scale).sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                currentLanguage = Language.SPANISH
+                                LanguageManager.saveLanguage(context, Language.SPANISH)
+                            },
+                            modifier = Modifier.size((60 * scale).dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguage == Language.SPANISH) Color.Black else Color.White,
+                                contentColor = if (currentLanguage == Language.SPANISH) Color.White else Color.Black
+                            ),
+                            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("ES", fontSize = (34 * scale).sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                currentLanguage = Language.ENGLISH
+                                LanguageManager.saveLanguage(context, Language.ENGLISH)
+                            },
+                            modifier = Modifier.size((60 * scale).dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguage == Language.ENGLISH) Color.Black else Color.White,
+                                contentColor = if (currentLanguage == Language.ENGLISH) Color.White else Color.Black
+                            ),
+                            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("EN", fontSize = (34 * scale).sp)
+                        }
                     }
 
-                    // Botó ES
-                    Button(
-                        onClick = {
-                            currentLanguage = Language.SPANISH
-                            LanguageManager.saveLanguage(context, Language.SPANISH)
-                        },
-                        modifier = Modifier.size((60 * scale).dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (currentLanguage == Language.SPANISH) Color.Black else Color.White,
-                            contentColor = if (currentLanguage == Language.SPANISH) Color.White else Color.Black
-                        ),
-                        border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("ES", fontSize = (34 * scale).sp)
-                    }
+                    Spacer(modifier = Modifier.height((12 * scale).dp))
 
-                    // Botó EN
-                    Button(
-                        onClick = {
-                            currentLanguage = Language.ENGLISH
-                            LanguageManager.saveLanguage(context, Language.ENGLISH)
-                        },
-                        modifier = Modifier.size((60 * scale).dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (currentLanguage == Language.ENGLISH) Color.Black else Color.White,
-                            contentColor = if (currentLanguage == Language.ENGLISH) Color.White else Color.Black
-                        ),
-                        border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
-                        contentPadding = PaddingValues(0.dp)
+                    // Botons de tema
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
                     ) {
-                        Text("EN", fontSize = (34 * scale).sp)
+                        Button(
+                            onClick = {
+                                isDarkTheme = false
+                                ThemeManager.saveDarkMode(context, false)
+                                onThemeChange(false)
+                            },
+                            modifier = Modifier.size(width = (80 * scale).dp, height = (50 * scale).dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (!isDarkTheme) Color.Black else Color.White,
+                                contentColor = if (!isDarkTheme) Color.White else Color.Black
+                            ),
+                            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("☀️", fontSize = (34 * scale).sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                isDarkTheme = true
+                                ThemeManager.saveDarkMode(context, true)
+                                onThemeChange(true)
+                            },
+                            modifier = Modifier.size(width = (80 * scale).dp, height = (50 * scale).dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDarkTheme) Color.Black else Color.White,
+                                contentColor = if (isDarkTheme) Color.White else Color.Black
+                            ),
+                            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("🌙", fontSize = (34 * scale).sp)
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height((12 * scale).dp))
+                Spacer(modifier = Modifier.weight(0.5f))
 
-                // Botons de tema
+                Text(
+                    text = strings.appTitle,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = (48 * scale).sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(modifier = Modifier.height((60 * scale).dp))
+
+                // Botons de mode - ara criden onModeSelected
+                Button(
+                    onClick = { onModeSelected("NORMAL") },
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f)
+                ) {
+                    Text(strings.normalMode, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.height((24 * scale).dp))
+
+                Button(
+                    onClick = { onModeSelected("ATTACK") },
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f)
+                ) {
+                    Text(strings.attackMode, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.height((48 * scale).dp))
+
+                // Botó estadístiques
+                Button(
+                    onClick = onStatisticsClick,
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke((2 * scale).dp, Color.Black)
+                ) {
+                    Text(strings.statistics, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = strings.createdBy,
+                    fontSize = (18 * scale).sp,
+                    color = if (isDarkTheme) Color.LightGray else Color.Gray,
+                    modifier = Modifier.padding(bottom = (16 * scale).dp)
+                )
+            } else {
+                // ✅ SI currentMode != null: Mostrar submenu de dificultats
+                val gameMode = try {
+                    GameMode.valueOf(currentMode)
+                } catch (e: Exception) {
+                    GameMode.NORMAL
+                }
+
+                Spacer(modifier = Modifier.height((38 * scale).dp))
+
+                // Botó Tornar (dalt esquerra)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
                 ) {
                     Button(
-                        onClick = {
-                            isDarkTheme = false
-                            ThemeManager.saveDarkMode(context, false)
-                            onThemeChange(false)
-                        },
-                        modifier = Modifier.size(width = (80 * scale).dp, height = (50 * scale).dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!isDarkTheme) Color.Black else Color.White,
-                            contentColor = if (!isDarkTheme) Color.White else Color.Black
-                        ),
-                        border = BorderStroke((2 * scale).dp, Color.Black),
+                        onClick = onBackToMainMenu, // ← Crida el callback de navegació
+                        modifier = Modifier
+                            .height((50 * scale).dp)
+                            .width((160 * scale).dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text("☀️", fontSize = (34 * scale).sp)
-                    }
-
-                    Button(
-                        onClick = {
-                            isDarkTheme = true
-                            ThemeManager.saveDarkMode(context, true)
-                            onThemeChange(true)
-                        },
-                        modifier = Modifier.size(width = (80 * scale).dp, height = (50 * scale).dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDarkTheme) Color.Black else Color.White,
-                            contentColor = if (isDarkTheme) Color.White else Color.Black
-                        ),
-                        border = BorderStroke((2 * scale).dp, Color.Black),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("🌙", fontSize = (34 * scale).sp)
+                        Text("${strings.back}", fontSize = (20 * scale).sp)
                     }
                 }
+
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                // Títol del mode seleccionat
+                Text(
+                    text = if (gameMode == GameMode.NORMAL) strings.normalMode else strings.attackMode,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = (48 * scale).sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height((60 * scale).dp))
+
+                // Botons de dificultat
+                Button(
+                    onClick = { onGameModeSelected(gameMode, Difficulty.EASY) },
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f)
+                ) {
+                    Text(strings.difficultyEasy, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.height((24 * scale).dp))
+
+                Button(
+                    onClick = { onGameModeSelected(gameMode, Difficulty.MEDIUM) },
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f)
+                ) {
+                    Text(strings.difficultyMedium, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.height((24 * scale).dp))
+
+                Button(
+                    onClick = { onGameModeSelected(gameMode, Difficulty.HARD) },
+                    modifier = Modifier
+                        .height((70 * scale).dp)
+                        .fillMaxWidth(0.8f)
+                ) {
+                    Text(strings.difficultyHard, fontSize = (34 * scale).sp)
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
             }
-
-            Spacer(modifier = Modifier.weight(0.5f))
-
-            Text(
-                text = strings.appTitle,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontSize = (48 * scale).sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height((60 * scale).dp))
-
-            Button(
-                onClick = { onDifficultySelected(Difficulty.EASY) },
-                modifier = Modifier
-                    .height((70 * scale).dp)
-                    .fillMaxWidth(0.8f)
-            ) {
-                Text(strings.difficultyEasy, fontSize = (34 * scale).sp)
-            }
-
-            Spacer(modifier = Modifier.height((24 * scale).dp))
-
-            Button(
-                onClick = { onDifficultySelected(Difficulty.MEDIUM) },
-                modifier = Modifier
-                    .height((70 * scale).dp)
-                    .fillMaxWidth(0.8f)
-            ) {
-                Text(strings.difficultyMedium, fontSize = (34 * scale).sp)
-            }
-
-            Spacer(modifier = Modifier.height((24 * scale).dp))
-
-            Button(
-                onClick = { onDifficultySelected(Difficulty.HARD) },
-                modifier = Modifier
-                    .height((70 * scale).dp)
-                    .fillMaxWidth(0.8f)
-            ) {
-                Text(strings.difficultyHard, fontSize = (34 * scale).sp)
-            }
-
-            Spacer(modifier = Modifier.height((48 * scale).dp))
-
-            Button(
-                onClick = onStatisticsClick,
-                modifier = Modifier
-                    .height((70 * scale).dp)
-                    .fillMaxWidth(0.8f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                border = BorderStroke((2 * scale).dp, Color.Black)
-            ) {
-                Text(strings.statistics, fontSize = (34 * scale).sp)
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = strings.createdBy,
-                fontSize = (18 * scale).sp,
-                color = if (isDarkTheme) {
-                    Color.LightGray
-                } else {
-                    Color.Gray
-                },
-                modifier = Modifier.padding(bottom = (16 * scale).dp)
-            )
         }
     }
 }

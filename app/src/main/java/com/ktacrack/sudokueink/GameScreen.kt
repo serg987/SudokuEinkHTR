@@ -30,27 +30,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 
 
-
 @Composable
-fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
+fun GameScreen(
+    difficulty: Difficulty,
+    mode: GameMode,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
     val strings = rememberStrings()
+
     var resetTrigger by remember { mutableStateOf(0) }
     var resetTimerTrigger by remember(resetTrigger) { mutableStateOf(0) } // Reiniciar timer
-    var isPaused by remember(resetTrigger) { mutableStateOf(false) } // Pause accessible
-    var shouldSaveOnExit by remember(resetTrigger) { mutableStateOf(true) }
-
-    // Factor d'escala adaptatiu
-    val scale = AdaptiveSizes.getScaleFactor()
-
-    // Detectar orientació
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Intentar carregar partida guardada
     val savedGame = remember(resetTrigger) {
         if (resetTrigger == 0) {
-            GameStateManager.loadGame(context, difficulty)  // ← Passa difficulty
+            GameStateManager.loadGame(context, mode, difficulty)  // ← Passa tipus joc i difficulty
         } else null
     }
 
@@ -72,6 +67,16 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             SudokuGenerator.generate(difficulty)
         }
     }
+
+    var isPaused by remember(resetTrigger) { mutableStateOf(savedGame != null) } // Començar pausat si hi ha partida guardada
+    var shouldSaveOnExit by remember(resetTrigger) { mutableStateOf(true) }
+
+    // Factor d'escala adaptatiu
+    val scale = AdaptiveSizes.getScaleFactor()
+
+    // Detectar orientació
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Guardar el tauler REALMENT inicial (només números fixos) per poder reiniciar
     val initialBoard = remember(resetTrigger) {
@@ -110,6 +115,8 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     var selectedNumber by remember(resetTrigger) { mutableStateOf<Int?>(null) }
     var showVictoryDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showErrorDialog by remember(resetTrigger) { mutableStateOf(false) }
+    var showTimeoutDialog by remember(resetTrigger) { mutableStateOf(false) }
+    var showResumeDialog by remember(resetTrigger) { mutableStateOf(savedGame != null) }
     var showDrawingCanvas by remember { mutableStateOf(false) }
     var isPencilMode by remember(resetTrigger) { mutableStateOf(false) }
 
@@ -119,6 +126,23 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     // Variable per guardar els segons actuals
     var currentElapsedSeconds by remember(resetTrigger) { mutableStateOf(startTimeOffset) }
 
+    // Variable per guardar el temps quan es fa pauta/finestra error
+    var pausedAtSeconds by remember(resetTrigger) { mutableStateOf(0) }
+
+    // Time Attack: límit de temps segons mode i dificultat
+    val timeLimitSeconds = remember(mode, difficulty) {
+        if (mode == GameMode.ATTACK) {
+            when (difficulty) {
+                Difficulty.EASY -> 20 * 60
+                Difficulty.MEDIUM -> 30 * 60
+                Difficulty.HARD -> 45 * 60
+            }
+        } else {
+            null
+        }
+    }
+
+    // Temps acumulat
     val timerText = rememberTimer(
         resetTrigger = resetTrigger,
         startOffset = startTimeOffset,
@@ -128,6 +152,16 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             currentElapsedSeconds = elapsedSeconds
         }
     )
+
+    // Temps restant
+    val displayTimerText = if (timeLimitSeconds != null) {
+        val remaining = (timeLimitSeconds - currentElapsedSeconds).coerceAtLeast(0)
+        val minutes = remaining / 60
+        val seconds = remaining % 60
+        String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+    } else {
+        timerText
+    }
 
 
     var hintsRemaining by remember(resetTrigger) {
@@ -148,6 +182,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         if (!showVictoryDialog) {
             val savedState = SavedGameState(
                 difficulty = difficulty.name,
+                mode = mode.name,
                 board = boardState.map { row ->
                     row.map { cell ->
                         SavedCell(
@@ -171,6 +206,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             if (!showVictoryDialog && shouldSaveOnExit) {
                 val savedState = SavedGameState(
                     difficulty = difficulty.name,
+                    mode = mode.name,
                     board = boardState.map { row ->
                         row.map { cell ->
                             SavedCell(
@@ -192,7 +228,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
     // Esborrar partida guardada quan es completa
     LaunchedEffect(showVictoryDialog) {
         if (showVictoryDialog) {
-            GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
+            GameStateManager.clearGame(context, mode, difficulty)  // ← Passa tipus joc i difficulty
         }
     }
 
@@ -214,21 +250,34 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         false
     }
 
+    // Time Attack: comprovar fi de temps
+    LaunchedEffect(timeLimitSeconds, currentElapsedSeconds, showVictoryDialog) {
+        if (timeLimitSeconds != null &&
+            !showVictoryDialog &&
+            currentElapsedSeconds >= timeLimitSeconds
+        ) {
+            // Aquí podries mostrar un diàleg de derrota per temps, per ara només:
+            isPaused = true
+            showTimeoutDialog = true  // o un altre estat específic si vols un diàleg diferent
+            shouldSaveOnExit = false
+        }
+    }
+
     // Detectar quan es completa el Sudoku
     LaunchedEffect(boardState) {
         val complete = boardState.all { row -> row.all { it.value != 0 } }
         if (complete && !showVictoryDialog) {
             val correct = boardState.mapIndexed { r, row ->
-                row.mapIndexed { c, cell ->
-                    cell.value == solution[r][c]
-                }.all { it }
-            }.all { it }
+                row.mapIndexed { c, cell -> cell.value == solution[r][c] }
+            }.all { it.all { it } }
 
             if (correct) {
-                // Registrar estadística
-                StatisticsManager.recordCompletion(context, difficulty, currentElapsedSeconds)
+                // ✅ Aturar quan es completa correctament
+                isPaused = true
+                StatisticsManager.recordCompletion(context, difficulty, mode, currentElapsedSeconds)
                 showVictoryDialog = true
             } else {
+                // ✅ Només mostrar el diàleg (el LaunchedEffect dins del diàleg pausarà el timer)
                 showErrorDialog = true
             }
         }
@@ -292,7 +341,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             )
                         }
 
-                        Text(text = timerText, fontSize = (24 * scale).sp)
+                        Text(text = displayTimerText, fontSize = (24 * scale).sp)
 
                         IconButton(
                             onClick = {
@@ -357,7 +406,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         shouldSaveOnExit = false
-                        GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
+                        GameStateManager.clearGame(context, mode, difficulty)  // ← Passa difficulty
                         resetTrigger++
                     },
                     modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
@@ -620,7 +669,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         shouldSaveOnExit = false
-                        GameStateManager.clearGame(context, difficulty)  // ← Passa difficulty
+                        GameStateManager.clearGame(context, mode, difficulty)  // ← Passa difficulty
                         resetTrigger++
                     },
                     modifier = Modifier
@@ -676,7 +725,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                             )
                         }
 
-                        Text(text = timerText, fontSize = (24 * scale).sp)
+                        Text(text = displayTimerText, fontSize = (24 * scale).sp)
 
                         IconButton(
                             onClick = {
@@ -738,7 +787,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 }
             )
 
-            Spacer(modifier = Modifier.height((16 * scale).dp))
+            Spacer(modifier = Modifier.height((10 * scale).dp))
 
             // Només els números (sense botó de notes)
             Row(
@@ -1002,7 +1051,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             },
             text = {
                 Text(
-                    text = "${strings.completed}\n\n${strings.time} $timerText",
+                    text = "${strings.completed}\n\n${strings.time} $displayTimerText",
                     fontSize = (24 * scale).sp,
                     lineHeight = (32 * scale).sp,
                     textAlign = TextAlign.Center
@@ -1019,7 +1068,7 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                         onClick = {
                             showVictoryDialog = false
                             shouldSaveOnExit = false
-                            GameStateManager.clearGame(context, difficulty)
+                            GameStateManager.clearGame(context, mode, difficulty)
                             resetTrigger++
                         },
                         modifier = Modifier
@@ -1046,12 +1095,20 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
         )
     }
 
-
     // Diàleg d'error
     if (showErrorDialog) {
+        // ✅ Guardar el temps actual i pausar
+        LaunchedEffect(Unit) {
+            pausedAtSeconds = currentElapsedSeconds
+            isPaused = true
+        }
+
         AlertDialog(
             onDismissRequest = {
                 showErrorDialog = false
+                // ✅ Actualitzar l'offset al temps pausat abans de reprendre
+                startTimeOffset = pausedAtSeconds
+                isPaused = false
             },
             title = {
                 Text(
@@ -1072,6 +1129,9 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
                 Button(
                     onClick = {
                         showErrorDialog = false
+                        // ✅ Actualitzar l'offset al temps pausat abans de reprendre
+                        startTimeOffset = pausedAtSeconds
+                        isPaused = false
                     },
                     modifier = Modifier.height((50 * scale).dp)
                 ) {
@@ -1080,161 +1140,290 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             }
         )
     }
+
+    // Diàleg de timeout (Time Attack)
+    if (showTimeoutDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showTimeoutDialog = false
+                // Opcionalment pots reprendre el timer si vols
+                // isPaused = false
+            },
+            title = {
+                Text(
+                    text = "⏱️ ${strings.timeUp}", // Afegeix "timeUp" a Strings.kt
+                    fontSize = (32 * scale).sp,
+                    lineHeight = (40 * scale).sp,
+                    color = Color.Red
+                )
+            },
+            text = {
+                Text(
+                    text = strings.timeUpMessage, // Afegeix missatge a Strings.kt
+                    fontSize = (24 * scale).sp,
+                    lineHeight = (32 * scale).sp
+                )
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+                ) {
+                    // Botó NOU SUDOKU
+                    Button(
+                        onClick = {
+                            showTimeoutDialog = false
+                            shouldSaveOnExit = false
+                            GameStateManager.clearGame(context, mode, difficulty)
+                            resetTrigger++
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height((50 * scale).dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(strings.newGame, fontSize = (18 * scale).sp)
+                    }
+
+                    // Botó TORNAR AL MENÚ
+                    Button(
+                        onClick = { onBack() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height((50 * scale).dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(strings.backToMenu, fontSize = (18 * scale).sp)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+    // Diàleg de continuar partida guardada
+    if (showResumeDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                // No permetre tancar sense decidir
+            },
+            title = {
+                Text(
+                    text = "${strings.resumeGame}", // Afegeix a Strings.kt
+                    fontSize = (32 * scale).sp,
+                    lineHeight = (40 * scale).sp
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = strings.resumeGameMessage, // Afegeix a Strings.kt
+                        fontSize = (24 * scale).sp,
+                        lineHeight = (32 * scale).sp
+                    )
+                    Spacer(modifier = Modifier.height((16 * scale).dp))
+                    Text(
+                        text = "${strings.time}: $displayTimerText",
+                        fontSize = (20 * scale).sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+                ) {
+                    // Botó CONTINUAR
+                    Button(
+                        onClick = {
+                            showResumeDialog = false
+                            isPaused = false // ✅ Començar a comptar
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height((50 * scale).dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(strings.continue_, fontSize = (18 * scale).sp) // Afegeix a Strings.kt
+                    }
+
+                    // Botó NOU JOC
+                    Button(
+                        onClick = {
+                            showResumeDialog = false
+                            shouldSaveOnExit = false
+                            GameStateManager.clearGame(context, mode, difficulty)
+                            resetTrigger++
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height((50 * scale).dp),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Text(strings.newGame, fontSize = (18 * scale).sp)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
 }
-    @Composable
-    fun SudokuBoard(
-        board: List<List<SudokuCell>>,
-        solution: List<List<Int>>,
-        selectedCell: Pair<Int, Int>?,
-        onCellClick: (Int, Int) -> Unit
+@Composable
+fun SudokuBoard(
+    board: List<List<SudokuCell>>,
+    solution: List<List<Int>>,
+    selectedCell: Pair<Int, Int>?,
+    onCellClick: (Int, Int) -> Unit
+) {
+    val scale = AdaptiveSizes.getScaleFactor()
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+
+    // Calcular mida real de cada cel·la
+    val cellSize = (screenWidthDp - 32) / 9  // Restar padding i dividir per 9
+    val noteScale = (cellSize / 40f).coerceIn(0.2f, 2.2f)  // Escala específica per notes
+
+    // Padding adaptatiu
+    val notePadding = when {
+        screenWidthDp < 360 -> (2 * scale).dp
+        screenWidthDp < 600 -> (2 * scale).dp
+        else -> (8 * scale).dp
+    }
+
+    Column(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .border((3 * scale).dp, Color.Black)
     ) {
-        val scale = AdaptiveSizes.getScaleFactor()
-        val configuration = LocalConfiguration.current
-        val screenWidthDp = configuration.screenWidthDp
+        for (row in 0 until 9) {
+            Row(modifier = Modifier.weight(1f)) {
+                for (col in 0 until 9) {
+                    val cell = board[row][col]
+                    val isSelected = selectedCell == Pair(row, col)
 
-        // Calcular mida real de cada cel·la
-        val cellSize = (screenWidthDp - 32) / 9  // Restar padding i dividir per 9
-        val noteScale = (cellSize / 40f).coerceIn(0.2f, 2.2f)  // Escala específica per notes
+                    // Determinar el color del text
+                    val textColor = when {
+                        cell.isFixed -> Color(0xFF263238) // Números inicials
+                        cell.value == 0 -> Color.Black  // Cel·la buida
+                        else -> Color(0xFF2196F3)  // Tots els números de l'usuari en blau
+                    }
 
-        // Padding adaptatiu
-        val notePadding = when {
-            screenWidthDp < 360 -> (2 * scale).dp
-            screenWidthDp < 600 -> (2 * scale).dp
-            else -> (8 * scale).dp
-        }
+                    val topBorder = when {
+                        row == 3 || row == 6 -> (2 * scale).dp
+                        else -> (0.5 * scale).dp
+                    }
+                    val leftBorder = when {
+                        col == 3 || col == 6 -> (2 * scale).dp
+                        else -> (0.5 * scale).dp
+                    }
+                    val bottomBorder = if (row == 8) 0.dp else (0.5 * scale).dp
+                    val rightBorder = if (col == 8) 0.dp else (0.5 * scale).dp
 
-        Column(
-            modifier = Modifier
-                .aspectRatio(1f)
-                .border((3 * scale).dp, Color.Black)
-        ) {
-            for (row in 0 until 9) {
-                Row(modifier = Modifier.weight(1f)) {
-                    for (col in 0 until 9) {
-                        val cell = board[row][col]
-                        val isSelected = selectedCell == Pair(row, col)
-
-                        // Determinar el color del text
-                        val textColor = when {
-                            cell.isFixed -> Color(0xFF263238) // Números inicials
-                            cell.value == 0 -> Color.Black  // Cel·la buida
-                            else -> Color(0xFF2196F3)  // Tots els números de l'usuari en blau
-                        }
-
-                        val topBorder = when {
-                            row == 3 || row == 6 -> (2 * scale).dp
-                            else -> (0.5 * scale).dp
-                        }
-                        val leftBorder = when {
-                            col == 3 || col == 6 -> (2 * scale).dp
-                            else -> (0.5 * scale).dp
-                        }
-                        val bottomBorder = if (row == 8) 0.dp else (0.5 * scale).dp
-                        val rightBorder = if (col == 8) 0.dp else (0.5 * scale).dp
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .background(
-                                    when {
-                                        isSelected -> Color(0xFFFFE082)     // Seleccionada: groc pastel
-                                        cell.isFixed -> Color(0xFFE0E0E0)   // Fixa: gris mitjà
-                                        else -> Color.White                 // Editable: blanc
-                                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(
+                                when {
+                                    isSelected -> Color(0xFFFFE082)     // Seleccionada: groc pastel
+                                    cell.isFixed -> Color(0xFFE0E0E0)   // Fixa: gris mitjà
+                                    else -> Color.White                 // Editable: blanc
+                                }
+                            )
+                            .clickable { onCellClick(row, col) }
+                            .drawBehind {
+                                drawLine(
+                                    color = Color.Black,
+                                    start = Offset(0f, topBorder.toPx() / 2),
+                                    end = Offset(size.width, topBorder.toPx() / 2),
+                                    strokeWidth = topBorder.toPx()
                                 )
-                                .clickable { onCellClick(row, col) }
-                                .drawBehind {
+                                drawLine(
+                                    color = Color.Black,
+                                    start = Offset(leftBorder.toPx() / 2, 0f),
+                                    end = Offset(leftBorder.toPx() / 2, size.height),
+                                    strokeWidth = leftBorder.toPx()
+                                )
+                                if (bottomBorder > 0.dp) {
                                     drawLine(
                                         color = Color.Black,
-                                        start = Offset(0f, topBorder.toPx() / 2),
-                                        end = Offset(size.width, topBorder.toPx() / 2),
-                                        strokeWidth = topBorder.toPx()
+                                        start = Offset(
+                                            0f,
+                                            size.height - bottomBorder.toPx() / 2
+                                        ),
+                                        end = Offset(
+                                            size.width,
+                                            size.height - bottomBorder.toPx() / 2
+                                        ),
+                                        strokeWidth = bottomBorder.toPx()
                                     )
+                                }
+                                if (rightBorder > 0.dp) {
                                     drawLine(
                                         color = Color.Black,
-                                        start = Offset(leftBorder.toPx() / 2, 0f),
-                                        end = Offset(leftBorder.toPx() / 2, size.height),
-                                        strokeWidth = leftBorder.toPx()
+                                        start = Offset(size.width - rightBorder.toPx() / 2, 0f),
+                                        end = Offset(
+                                            size.width - rightBorder.toPx() / 2,
+                                            size.height
+                                        ),
+                                        strokeWidth = rightBorder.toPx()
                                     )
-                                    if (bottomBorder > 0.dp) {
-                                        drawLine(
-                                            color = Color.Black,
-                                            start = Offset(
-                                                0f,
-                                                size.height - bottomBorder.toPx() / 2
-                                            ),
-                                            end = Offset(
-                                                size.width,
-                                                size.height - bottomBorder.toPx() / 2
-                                            ),
-                                            strokeWidth = bottomBorder.toPx()
-                                        )
-                                    }
-                                    if (rightBorder > 0.dp) {
-                                        drawLine(
-                                            color = Color.Black,
-                                            start = Offset(size.width - rightBorder.toPx() / 2, 0f),
-                                            end = Offset(
-                                                size.width - rightBorder.toPx() / 2,
-                                                size.height
-                                            ),
-                                            strokeWidth = rightBorder.toPx()
-                                        )
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (cell.value != 0) {
-                                // Mostrar número principal
-                                Text(
-                                    text = cell.value.toString(),
-                                    fontSize = (30 * scale).sp,
-                                    color = textColor,
-                                    fontWeight = if (cell.isFixed) FontWeight.Bold else FontWeight.Normal
-                                )
-                            } else if (cell.notes.isNotEmpty()) {
-                                // Mostrar notes en una graella 3x3
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(notePadding),  // ← Padding ajustat a mida
-                                    contentAlignment = Alignment.Center
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (cell.value != 0) {
+                            // Mostrar número principal
+                            Text(
+                                text = cell.value.toString(),
+                                fontSize = (30 * scale).sp,
+                                color = textColor,
+                                fontWeight = if (cell.isFixed) FontWeight.Bold else FontWeight.Normal
+                            )
+                        } else if (cell.notes.isNotEmpty()) {
+                            // Mostrar notes en una graella 3x3
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(notePadding),  // ← Padding ajustat a mida
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy((0 * noteScale).dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy((0 * noteScale).dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        for (rowNotes in 0 until 3) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .weight(1f),
-                                                horizontalArrangement = Arrangement.SpaceEvenly,  // ← SIN espais entre columnes
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                for (colNotes in 0 until 3) {
-                                                    val noteNumber = rowNotes * 3 + colNotes + 1
-                                                    Box(
-                                                        modifier = Modifier.weight(1f),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Text(
-                                                            text = if (cell.notes.contains(
-                                                                    noteNumber
-                                                                )
-                                                            ) {
-                                                                noteNumber.toString()  // ← Mostra el número
-                                                            } else {
-                                                                ""  // ← Espai buit però manté la posició
-                                                            },
-                                                            fontSize = (10 * noteScale).sp,
-                                                            color = Color.Gray,
-                                                            textAlign = TextAlign.Center,
-                                                            lineHeight = (8 * noteScale).sp
-                                                        )
-                                                    }
+                                    for (rowNotes in 0 until 3) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(1f),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,  // ← SIN espais entre columnes
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            for (colNotes in 0 until 3) {
+                                                val noteNumber = rowNotes * 3 + colNotes + 1
+                                                Box(
+                                                    modifier = Modifier.weight(1f),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = if (cell.notes.contains(
+                                                                noteNumber
+                                                            )
+                                                        ) {
+                                                            noteNumber.toString()  // ← Mostra el número
+                                                        } else {
+                                                            ""  // ← Espai buit però manté la posició
+                                                        },
+                                                        fontSize = (10 * noteScale).sp,
+                                                        color = Color.Gray,
+                                                        textAlign = TextAlign.Center,
+                                                        lineHeight = (8 * noteScale).sp
+                                                    )
                                                 }
                                             }
                                         }
@@ -1247,24 +1436,34 @@ fun GameScreen(difficulty: Difficulty, onBack: () -> Unit) {
             }
         }
     }
+}
 @Composable
 fun rememberTimer(
     resetTrigger: Int = 0,
     startOffset: Int = 0,
     isPaused: Boolean = false,
     resetTimer: Int = 0,
-    onTimeUpdate: (Int) -> Unit = {}  // ← NOVA callback
+    onTimeUpdate: (Int) -> Unit
 ): String {
     var elapsedTime by remember(resetTrigger, resetTimer) { mutableStateOf(startOffset) }
+    // ✅ Guardar el temps quan es pausa
+    var timeWhenPaused by remember(resetTrigger) { mutableStateOf(startOffset) }
 
-    LaunchedEffect(resetTrigger, isPaused, resetTimer) {
-        val startTime = System.currentTimeMillis() - (startOffset * 1000L)
-        while (true) {
-            kotlinx.coroutines.delay(1000)
-            if (!isPaused) {
-                elapsedTime = ((System.currentTimeMillis() - startTime) / 1000).toInt()
-                onTimeUpdate(elapsedTime)  // ← Notificar el temps actual
+    LaunchedEffect(resetTrigger, isPaused, resetTimer, startOffset) { // ← Afegir startOffset com a key
+        if (!isPaused) {
+            // ✅ Començar des del startOffset actualitzat
+            val startTime = System.currentTimeMillis() - (startOffset * 1000L)
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                if (!isPaused) {
+                    elapsedTime = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+                    timeWhenPaused = elapsedTime
+                    onTimeUpdate(elapsedTime)
+                }
             }
+        } else {
+            // ✅ Quan està pausat, mantenir el temps guardat
+            elapsedTime = timeWhenPaused
         }
     }
 
@@ -1272,6 +1471,7 @@ fun rememberTimer(
     val seconds = elapsedTime % 60
     return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }
+
 
 
 

@@ -70,6 +70,8 @@ interface Strings {
     val cancel: String
 
     // Dialogs
+    val resumeGame: String
+    val resumeGameMessage: String
     val congratulations: String
     val completed: String
     val time: String
@@ -78,12 +80,19 @@ interface Strings {
     val error: String
     val errorMessage: String
     val review: String
+    val timeUp: String
+    val timeUpMessage: String
 
     // Statistics
     val statisticsTitle: String
     val gamesCompleted: String
     val bestTime: String
+    val bestRemainingTime: String
     val totalGames: String
+
+    // Game Modes (AFEGIR AQUESTS)
+    val normalMode: String
+    val attackMode: String
 
     // Settings
     val settingsTitle: String
@@ -100,6 +109,8 @@ interface Strings {
 
 object StringsCa : Strings {
     override val appTitle = "Sudoku E-ink"
+    override val normalMode = "Joc Normal"
+    override val attackMode = "Sudoku Atac"
     override val difficultyEasy = "Nivell Fàcil"
     override val difficultyMedium = "Nivell Intermedi"
     override val difficultyHard = "Nivell Difícil"
@@ -122,7 +133,8 @@ object StringsCa : Strings {
     override val drawNumber = "Dibuixa un número:"
     override val recognize = "Reconèixer"
     override val cancel = "Cancel·lar"
-
+    override val resumeGame= "▶️Continuar partida"
+    override val resumeGameMessage = "Tens una partida guardada. Vols continuar-la?"
     override val congratulations = "🎉 Felicitats!"
     override val completed = "Has completat el Sudoku correctament!"
     override val time = "Temps:"
@@ -131,12 +143,14 @@ object StringsCa : Strings {
     override val error = "❌ Hi ha errors!"
     override val errorMessage = "El tauler està complet però té números incorrectes. Revisa les cel·les!"
     override val review = "Revisar"
+    override val timeUp = "⏰ Temps esgotat!"
+    override val timeUpMessage = "No has pogut completar el sudoku a temps."
 
     override val statisticsTitle = "📊 Estadístiques"
     override val gamesCompleted = "Partides completades:"
     override val bestTime = "Millor temps:"
+    override val bestRemainingTime = "Millor temps restant:"
     override val totalGames = "Total de partides completades"
-
     override val theme = "Tema"
     override val lightTheme = "Clar"
     override val darkTheme = "Fosc"
@@ -150,6 +164,8 @@ object StringsCa : Strings {
 
 object StringsEs : Strings {
     override val appTitle = "Sudoku E-ink"
+    override val normalMode = "Juego Normal"
+    override val attackMode = "Sudoku Ataque"
     override val difficultyEasy = "Nivel Fácil"
     override val difficultyMedium = "Nivel Intermedio"
     override val difficultyHard = "Nivel Difícil"
@@ -173,6 +189,8 @@ object StringsEs : Strings {
     override val recognize = "Reconocer"
     override val cancel = "Cancelar"
 
+    override val resumeGame= "▶️Continuar partida"
+    override val resumeGameMessage = "Tienes una partida guardada. ¿Quieres continuarla?"
     override val congratulations = "🎉 ¡Felicidades!"
     override val completed = "¡Has completado el Sudoku correctamente!"
     override val time = "Tiempo:"
@@ -181,10 +199,13 @@ object StringsEs : Strings {
     override val error = "❌ ¡Hay errores!"
     override val errorMessage = "El tablero está completo pero tiene números incorrectos. ¡Revisa las celdas!"
     override val review = "Revisar"
+    override val timeUp = "⏰ ¡Tiempo agotado!"
+    override val timeUpMessage = "No has podido completar el sudoku a tiempo."
 
     override val statisticsTitle = "📊 Estadísticas"
     override val gamesCompleted = "Partidas completadas:"
     override val bestTime = "Mejor tiempo:"
+    override val bestRemainingTime = "Mejor tiempo restante:"
     override val totalGames = "Total de partidas completadas"
 
     override val theme = "Tema"
@@ -200,6 +221,8 @@ object StringsEs : Strings {
 
 object StringsEn : Strings {
     override val appTitle = "Sudoku E-ink"
+    override val normalMode = "Normal Game"
+    override val attackMode = "Sudoku Attack"
     override val difficultyEasy = "Level Easy"
     override val difficultyMedium = "Level Medium"
     override val difficultyHard = "Level Hard"
@@ -223,6 +246,8 @@ object StringsEn : Strings {
     override val recognize = "Recognize"
     override val cancel = "Cancel"
 
+    override val resumeGame= "▶️Resume game"
+    override val resumeGameMessage = "You have a saved game. Do you want to resume it?"
     override val congratulations = "🎉 Congratulations!"
     override val completed = "You have completed the Sudoku correctly!"
     override val time = "Time:"
@@ -231,10 +256,13 @@ object StringsEn : Strings {
     override val error = "❌ There are errors!"
     override val errorMessage = "The board is complete but has incorrect numbers. Review the cells!"
     override val review = "Review"
+    override val timeUp = "⏰ Time's up!"
+    override val timeUpMessage = "You couldn't complete the sudoku in time."
 
     override val statisticsTitle = "📊 Statistics"
     override val gamesCompleted = "Games completed:"
     override val bestTime = "Best time:"
+    override val bestRemainingTime = "Best remaining time:"
     override val totalGames = "Total games completed"
 
     override val theme = "Theme"
