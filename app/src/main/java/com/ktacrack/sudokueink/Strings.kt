@@ -60,6 +60,11 @@ interface Strings {
     val pencilOff: String
     val notesOn: String
     val notesOff: String
+    val notesManual: String
+    val notesAuto: String
+    val autoNotesTitle: String
+    val autoNotesExplanation: String
+    val understood: String
     val erase: String
     val hint: String
     val undo: String
@@ -82,6 +87,9 @@ interface Strings {
     val review: String
     val timeUp: String
     val timeUpMessage: String
+    val gamePaused: String
+    val gamePausedMessage: String
+    val resume: String
 
     // Statistics
     val statisticsTitle: String
@@ -105,6 +113,44 @@ interface Strings {
     val theme: String
     val lightTheme: String
     val darkTheme: String
+
+    // ACHIEVEMENTS - Títols generals
+    val achievements: String
+    val achievementsUnlocked: String
+    val achievementUnlocked: String
+    val progress: String
+    val awesome: String
+
+    // ACHIEVEMENTS - Individuals
+    val achievementFirstWin: String
+    val achievementFirstWinDesc: String
+
+    val achievement10Games: String
+    val achievement10GamesDesc: String
+
+    val achievement50Games: String
+    val achievement50GamesDesc: String
+
+    val achievement100Games: String
+    val achievement100GamesDesc: String
+
+    val achievementSpeedEasy: String
+    val achievementSpeedEasyDesc: String
+
+    val achievementSpeedHard: String
+    val achievementSpeedHardDesc: String
+
+    val achievementHardMaster: String
+    val achievementHardMasterDesc: String
+
+    val achievementAttackSurvivor: String
+    val achievementAttackSurvivorDesc: String
+
+    val achievementNoHints: String
+    val achievementNoHintsDesc: String
+
+    val achievementNoErrors: String
+    val achievementNoErrorsDesc: String
 }
 
 object StringsCa : Strings {
@@ -130,6 +176,12 @@ object StringsCa : Strings {
     override val hint = "Pista"
     override val undo = "Desfer"
 
+    override val notesManual = "Notes ON"
+    override val notesAuto = "Notes AUTO"
+    override val autoNotesTitle = "Notes automàtiques"
+    override val autoNotesExplanation = "Prem una estona una cel·la per afegir automàticament tots els possibles números com a notes. A mesura que vagis afegint números al sudoku, les notes incompatibles s'aniran esborrant automàticament."
+    override val understood = "Entès"
+
     override val drawNumber = "Dibuixa un número:"
     override val recognize = "Reconèixer"
     override val cancel = "Cancel·lar"
@@ -146,6 +198,10 @@ object StringsCa : Strings {
     override val timeUp = "⏰ Temps esgotat!"
     override val timeUpMessage = "No has pogut completar el sudoku a temps."
 
+    override val gamePaused = "Joc en pausa"
+    override val gamePausedMessage = "Prem reprendre per continuar jugant"
+    override val resume = "Reprendre"
+
     override val statisticsTitle = "📊 Estadístiques"
     override val gamesCompleted = "Partides completades:"
     override val bestTime = "Millor temps:"
@@ -160,6 +216,44 @@ object StringsCa : Strings {
     override val catalan = "Català"
     override val spanish = "Castellà"
     override val english = "Anglès"
+
+    // ACHIEVEMENTS
+    override val achievements = "Fites"
+    override val achievementsUnlocked = "desbloquejades"
+    override val achievementUnlocked = "Fita Desbloquejada!"
+    override val progress = "Progrés"
+    override val awesome = "Genial!"
+
+    // Individuals
+    override val achievementFirstWin = "Primera Victòria"
+    override val achievementFirstWinDesc = "Completa el teu primer sudoku"
+
+    override val achievement10Games = "Aficionat"
+    override val achievement10GamesDesc = "Completa 10 sudokus"
+
+    override val achievement50Games = "Sudoku Addicte"
+    override val achievement50GamesDesc = "Completa 50 sudokus"
+
+    override val achievement100Games = "Mestre Sudoku"
+    override val achievement100GamesDesc = "Completa 100 sudokus"
+
+    override val achievementSpeedEasy = "Velocista Fàcil"
+    override val achievementSpeedEasyDesc = "Completa fàcil en menys de 3 minuts"
+
+    override val achievementSpeedHard = "Flash Difícil"
+    override val achievementSpeedHardDesc = "Completa difícil en menys de 10 minuts"
+
+    override val achievementHardMaster = "Domador de Difícils"
+    override val achievementHardMasterDesc = "Completa 25 sudokus difícils"
+
+    override val achievementAttackSurvivor = "Supervivència Extrema"
+    override val achievementAttackSurvivorDesc = "Completa mode atac amb menys de 10s restants"
+
+    override val achievementNoHints = "Ment Pura"
+    override val achievementNoHintsDesc = "Completa 5 sudokus sense usar pistes"
+
+    override val achievementNoErrors = "Perfeccionista"
+    override val achievementNoErrorsDesc = "Completa 10 sudokus sense errors"
 }
 
 object StringsEs : Strings {
@@ -185,6 +279,12 @@ object StringsEs : Strings {
     override val hint = "Pista"
     override val undo = "Deshacer"
 
+    override val notesManual = "Notas ON"
+    override val notesAuto = "Notas AUTO"
+    override val autoNotesTitle = "Notas automáticas"
+    override val autoNotesExplanation = "Mantén pulsada una celda para añadir automáticamente todos los números posibles como notas. A medida que vayas añadiendo números al sudoku, las notas incompatibles se irán borrando automáticamente."
+    override val understood = "Entendido"
+
     override val drawNumber = "Dibuja un número:"
     override val recognize = "Reconocer"
     override val cancel = "Cancelar"
@@ -202,6 +302,10 @@ object StringsEs : Strings {
     override val timeUp = "⏰ ¡Tiempo agotado!"
     override val timeUpMessage = "No has podido completar el sudoku a tiempo."
 
+    override val gamePaused = "Juego en pausa"
+    override val gamePausedMessage = "Pulsa reanudar para continuar jugando"
+    override val resume = "Reanudar"
+
     override val statisticsTitle = "📊 Estadísticas"
     override val gamesCompleted = "Partidas completadas:"
     override val bestTime = "Mejor tiempo:"
@@ -217,6 +321,43 @@ object StringsEs : Strings {
     override val catalan = "Catalán"
     override val spanish = "Castellano"
     override val english = "Inglés"
+
+    override val achievements = "Logros"
+    override val achievementsUnlocked = "desbloqueados"
+    override val achievementUnlocked = "¡Logro Desbloqueado!"
+    override val progress = "Progreso"
+    override val awesome = "¡Genial!"
+
+    // Individuals
+    override val achievementFirstWin = "Primera Victoria"
+    override val achievementFirstWinDesc = "Completa tu primer sudoku"
+
+    override val achievement10Games = "Aficionado"
+    override val achievement10GamesDesc = "Completa 10 sudokus"
+
+    override val achievement50Games = "Sudoku Adicto"
+    override val achievement50GamesDesc = "Completa 50 sudokus"
+
+    override val achievement100Games = "Maestro Sudoku"
+    override val achievement100GamesDesc = "Completa 100 sudokus"
+
+    override val achievementSpeedEasy = "Velocista Fácil"
+    override val achievementSpeedEasyDesc = "Completa fácil en menos de 3 minutos"
+
+    override val achievementSpeedHard = "Flash Difícil"
+    override val achievementSpeedHardDesc = "Completa difícil quedando menos de 10 minutos"
+
+    override val achievementHardMaster = "Domador de Difíciles"
+    override val achievementHardMasterDesc = "Completa 25 sudokus difíciles"
+
+    override val achievementAttackSurvivor = "Supervivencia Extrema"
+    override val achievementAttackSurvivorDesc = "Completa modo ataque con menos de 10s"
+
+    override val achievementNoHints = "Mente Pura"
+    override val achievementNoHintsDesc = "Completa 5 sudokus sin usar pistas"
+
+    override val achievementNoErrors = "Perfeccionista"
+    override val achievementNoErrorsDesc = "Completa 10 sudokus sin errores"
 }
 
 object StringsEn : Strings {
@@ -242,6 +383,12 @@ object StringsEn : Strings {
     override val hint = "Hint"
     override val undo = "Undo"
 
+    override val notesManual = "Notes ON"
+    override val notesAuto = "Notes AUTO"
+    override val autoNotesTitle = "Auto Notes"
+    override val autoNotesExplanation = "Long press a cell to automatically add all possible numbers as notes. As you fill in the sudoku, incompatible notes will be automatically cleared."
+    override val understood = "Got it"
+
     override val drawNumber = "Draw a number:"
     override val recognize = "Recognize"
     override val cancel = "Cancel"
@@ -259,6 +406,10 @@ object StringsEn : Strings {
     override val timeUp = "⏰ Time's up!"
     override val timeUpMessage = "You couldn't complete the sudoku in time."
 
+    override val gamePaused = "Game Paused"
+    override val gamePausedMessage = "Press resume to continue playing"
+    override val resume = "Resume"
+
     override val statisticsTitle = "📊 Statistics"
     override val gamesCompleted = "Games completed:"
     override val bestTime = "Best time:"
@@ -274,4 +425,41 @@ object StringsEn : Strings {
     override val catalan = "Catalan"
     override val spanish = "Spanish"
     override val english = "English"
+
+    override val achievements = "Achievements"
+    override val achievementsUnlocked = "unlocked"
+    override val achievementUnlocked = "Achievement Unlocked!"
+    override val progress = "Progress"
+    override val awesome = "Awesome!"
+
+    // Individuals
+    override val achievementFirstWin = "First Victory"
+    override val achievementFirstWinDesc = "Complete your first sudoku"
+
+    override val achievement10Games = "Enthusiast"
+    override val achievement10GamesDesc = "Complete 10 sudokus"
+
+    override val achievement50Games = "Sudoku Addict"
+    override val achievement50GamesDesc = "Complete 50 sudokus"
+
+    override val achievement100Games = "Sudoku Master"
+    override val achievement100GamesDesc = "Complete 100 sudokus"
+
+    override val achievementSpeedEasy = "Easy Speedster"
+    override val achievementSpeedEasyDesc = "Complete easy in less than 3 minutes"
+
+    override val achievementSpeedHard = "Hard Flash"
+    override val achievementSpeedHardDesc = "Complete hard in less than 10 minutes"
+
+    override val achievementHardMaster = "Hard Tamer"
+    override val achievementHardMasterDesc = "Complete 25 hard sudokus"
+
+    override val achievementAttackSurvivor = "Extreme Survivor"
+    override val achievementAttackSurvivorDesc = "Complete attack mode with less than 10s left"
+
+    override val achievementNoHints = "Pure Mind"
+    override val achievementNoHintsDesc = "Complete 5 sudokus without using hints"
+
+    override val achievementNoErrors = "Perfectionist"
+    override val achievementNoErrorsDesc = "Complete 10 sudokus without errors"
 }

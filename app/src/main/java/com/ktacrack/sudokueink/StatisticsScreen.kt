@@ -23,12 +23,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
     val scale = AdaptiveSizes.getScaleFactor()
 
     // Calcular total de partides
-    val totalGames = stats.gamesCompletedEasyNormal +
-            stats.gamesCompletedMediumNormal +
-            stats.gamesCompletedHardNormal +
-            stats.gamesCompletedEasyAttack +
-            stats.gamesCompletedMediumAttack +
-            stats.gamesCompletedHardAttack
+    val totalGames = stats.totalGamesCompleted
 
     Column(
         modifier = Modifier
@@ -37,7 +32,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height((38 * scale).dp))
+        Spacer(modifier = Modifier.height((46 * scale).dp))
 
         // ====== BOTÓ TORNAR (DALT ESQUERRA) ======
         Row(
@@ -51,7 +46,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
                     .width((160 * scale).dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text(strings.back, fontSize = (20 * scale).sp)
+                Text(strings.back, fontSize = (24 * scale).sp)
             }
         }
 
@@ -86,7 +81,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height((16 * scale).dp))
+                Spacer(modifier = Modifier.height((24 * scale).dp))
 
                 // EASY Normal
                 StatCard(
@@ -133,7 +128,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height((16 * scale).dp))
+                Spacer(modifier = Modifier.height((24 * scale).dp))
 
                 // EASY Attack
                 StatCard(
@@ -174,37 +169,14 @@ fun StatisticsScreen(onBack: () -> Unit) {
         Spacer(modifier = Modifier.height((32 * scale).dp))
 
         // ====== TOTAL DE PARTIDES ======
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height((90 * scale).dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            ),
-            border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.primary)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding((12 * scale).dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = strings.totalGames,
-                    fontSize = (28 * scale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Spacer(modifier = Modifier.height((4 * scale).dp))
-                Text(
-                    text = "$totalGames",
-                    fontSize = (32 * scale).sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
+        StatCard(
+            title = strings.totalGames,
+            gamesCompleted = totalGames,
+            bestTime = null,  // No mostrar temps
+            strings = strings,
+            scale = scale,
+            isTotalCard = true  // ✅ Mode totals
+        )
     }
 }
 
@@ -215,50 +187,64 @@ private fun StatCard(
     bestTime: Int?,
     strings: Strings,
     scale: Float,
-    isAttackMode: Boolean = false // ✅ NOU paràmetre
+    isAttackMode: Boolean = false,
+    isTotalCard: Boolean = false  // ✅ NOU: Paràmetre per card totals
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .height((110 * scale).dp),
+            .fillMaxWidth(
+            if (isTotalCard) 0.80f else 1f
+            )
+            .wrapContentHeight(),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
-        border = BorderStroke((2 * scale).dp, Color.Black)
+        border = BorderStroke(
+            (2 * scale).dp,
+            MaterialTheme.colorScheme.primary
+        )
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding((12 * scale).dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.Start
+                .fillMaxWidth()
+                .padding((12 * scale).dp)
+                .wrapContentHeight(),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = if (isTotalCard) Alignment.CenterHorizontally else Alignment.Start  // ✅ Centrat per totals
         ) {
-            // Títol (Fàcil, Intermedi, Difícil)
+            // Títol
             Text(
                 text = title,
                 fontSize = (24 * scale).sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
-            Spacer(modifier = Modifier.height((8 * scale).dp))
+            Spacer(modifier = Modifier.height((2 * scale).dp))
 
-            // Partides completades amb label
+            // Partides totals
             Text(
-                text = "${strings.gamesCompleted} $gamesCompleted",
-                fontSize = (20 * scale).sp,
-                color = Color.DarkGray
+                text = if (isTotalCard) {
+                    "$gamesCompleted"  // ✅ Només número per totals
+                } else {
+                    "${strings.gamesCompleted} $gamesCompleted"  // ✅ Label + número per cards normals
+                },
+                fontSize = if (isTotalCard) (32 * scale).sp else (20 * scale).sp,
+                //fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
 
-            // ✅ Canviar el label segons el mode
-            val timeLabel = if (isAttackMode) strings.bestRemainingTime else strings.bestTime
-
-            Text(
-                text = "$timeLabel ${bestTime?.let { StatisticsManager.formatTime(it) } ?: "--:--"}",
-                fontSize = (20 * scale).sp,
-                color = Color.DarkGray
-            )
+            if (!isTotalCard) {  // ✅ Només mostrar temps si NO és card totals
+                Spacer(modifier = Modifier.height((2 * scale).dp))
+                val timeLabel = if (isAttackMode) strings.bestRemainingTime else strings.bestTime
+                Text(
+                    text = "$timeLabel ${bestTime?.let { StatisticsManager.formatTime(it) } ?: "--:--"}",
+                    fontSize = (20 * scale).sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
+
 

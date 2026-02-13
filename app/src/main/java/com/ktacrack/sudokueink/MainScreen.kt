@@ -15,11 +15,12 @@ import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun MainScreen(
-    currentMode: String? = null, // ← NOU: Rep el mode des de Navigation
-    onModeSelected: (String) -> Unit = {}, // ← NOU: Per navegar al submenu
+    currentMode: String? = null,
+    onModeSelected: (String) -> Unit = {},
     onGameModeSelected: (GameMode, Difficulty) -> Unit = { _, _ -> },
     onStatisticsClick: () -> Unit = {},
-    onBackToMainMenu: () -> Unit = {}, // ← NOU: Per tornar des del submenu
+    onAchievementsClick: () -> Unit = {},
+    onBackToMainMenu: () -> Unit = {},
     onThemeChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -27,7 +28,6 @@ fun MainScreen(
     var isDarkTheme by remember { mutableStateOf(ThemeManager.loadDarkMode(context)) }
     val scale = AdaptiveSizes.getScaleFactor()
 
-    // ✅ Gestió del botó enrere d'Android
     BackHandler(enabled = currentMode != null) {
         onBackToMainMenu()
     }
@@ -39,26 +39,19 @@ fun MainScreen(
             Language.ENGLISH -> StringsEn
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding((16 * scale).dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ✅ SI currentMode == null: Mostrar menú principal
+        Box(modifier = Modifier.fillMaxSize()) {
             if (currentMode == null) {
-                // Selector d'idioma i tema a dalt a la dreta
+                // ✅ SELECTOR IDIOMA/TEMA (sempre dalt dreta)
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = (42 * scale).dp, bottom = (16 * scale).dp),
+                        .align(Alignment.TopEnd)
+                        .padding((16 * scale).dp),
                     horizontalAlignment = Alignment.End
                 ) {
-                    // Botons d'idioma
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
-                    ) {
+                    Spacer(modifier = Modifier.height((46 * scale).dp))
+
+                    // Botons idioma
+                    Row(horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)) {
                         Button(
                             onClick = {
                                 currentLanguage = Language.CATALAN
@@ -110,10 +103,8 @@ fun MainScreen(
 
                     Spacer(modifier = Modifier.height((12 * scale).dp))
 
-                    // Botons de tema
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
-                    ) {
+                    // Botons tema
+                    Row(horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)) {
                         Button(
                             onClick = {
                                 isDarkTheme = false
@@ -150,138 +141,166 @@ fun MainScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(0.5f))
-
-                Text(
-                    text = strings.appTitle,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = (48 * scale).sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Spacer(modifier = Modifier.height((60 * scale).dp))
-
-                // Botons de mode - ara criden onModeSelected
-                Button(
-                    onClick = { onModeSelected("NORMAL") },
+                // ✅ CONTINGUT CENTRAT (títol + botons)
+                Column(
                     modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f)
+                        .fillMaxSize()
+                        .padding((16 * scale).dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(strings.normalMode, fontSize = (34 * scale).sp)
+                    Text(
+                        text = strings.appTitle,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = (48 * scale).sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Spacer(modifier = Modifier.height((40 * scale).dp))
+
+                    Button(
+                        onClick = { onModeSelected("NORMAL") },
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(strings.normalMode, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.height((20 * scale).dp))
+
+                    Button(
+                        onClick = { onModeSelected("ATTACK") },
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(strings.attackMode, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.height((32 * scale).dp))
+
+                    Button(
+                        onClick = onStatisticsClick,
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke((2 * scale).dp, Color.Black)
+                    ) {
+                        Text(strings.statistics, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.height((20 * scale).dp))
+
+                    Button(
+                        onClick = onAchievementsClick,
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke((2 * scale).dp, Color.Black)
+                    ) {
+                        Text(strings.achievements, fontSize = (34 * scale).sp)
+                    }
                 }
 
-                Spacer(modifier = Modifier.height((24 * scale).dp))
-
-                Button(
-                    onClick = { onModeSelected("ATTACK") },
-                    modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f)
-                ) {
-                    Text(strings.attackMode, fontSize = (34 * scale).sp)
-                }
-
-                Spacer(modifier = Modifier.height((48 * scale).dp))
-
-                // Botó estadístiques
-                Button(
-                    onClick = onStatisticsClick,
-                    modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
-                    ),
-                    border = BorderStroke((2 * scale).dp, Color.Black)
-                ) {
-                    Text(strings.statistics, fontSize = (34 * scale).sp)
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
+                // ✅ TEXT "CREATED BY" (sempre baix)
                 Text(
                     text = strings.createdBy,
                     fontSize = (18 * scale).sp,
                     color = if (isDarkTheme) Color.LightGray else Color.Gray,
-                    modifier = Modifier.padding(bottom = (16 * scale).dp)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = (16 * scale).dp)
                 )
+
             } else {
-                // ✅ SI currentMode != null: Mostrar submenu de dificultats
+                // ✅ SUBMENU DIFICULTATS
                 val gameMode = try {
                     GameMode.valueOf(currentMode)
                 } catch (e: Exception) {
                     GameMode.NORMAL
                 }
 
-                Spacer(modifier = Modifier.height((38 * scale).dp))
-
-                // Botó Tornar (dalt esquerra)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding((16 * scale).dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Button(
-                        onClick = onBackToMainMenu, // ← Crida el callback de navegació
-                        modifier = Modifier
-                            .height((50 * scale).dp)
-                            .width((160 * scale).dp),
-                        contentPadding = PaddingValues(0.dp)
+                    Spacer(modifier = Modifier.height((46 * scale).dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
                     ) {
-                        Text("${strings.back}", fontSize = (20 * scale).sp)
+                        Button(
+                            onClick = onBackToMainMenu,
+                            modifier = Modifier
+                                .height((50 * scale).dp)
+                                .width((160 * scale).dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(strings.back, fontSize = (24 * scale).sp)
+                        }
                     }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Text(
+                        text = if (gameMode == GameMode.NORMAL) strings.normalMode else strings.attackMode,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = (48 * scale).sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.height((40 * scale).dp))
+
+                    Button(
+                        onClick = { onGameModeSelected(gameMode, Difficulty.EASY) },
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(strings.difficultyEasy, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.height((20 * scale).dp))
+
+                    Button(
+                        onClick = { onGameModeSelected(gameMode, Difficulty.MEDIUM) },
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(strings.difficultyMedium, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.height((20 * scale).dp))
+
+                    Button(
+                        onClick = { onGameModeSelected(gameMode, Difficulty.HARD) },
+                        modifier = Modifier
+                            .height((70 * scale).dp)
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(strings.difficultyHard, fontSize = (34 * scale).sp)
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
                 }
-
-                Spacer(modifier = Modifier.weight(0.5f))
-
-                // Títol del mode seleccionat
-                Text(
-                    text = if (gameMode == GameMode.NORMAL) strings.normalMode else strings.attackMode,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = (48 * scale).sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.height((60 * scale).dp))
-
-                // Botons de dificultat
-                Button(
-                    onClick = { onGameModeSelected(gameMode, Difficulty.EASY) },
-                    modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f)
-                ) {
-                    Text(strings.difficultyEasy, fontSize = (34 * scale).sp)
-                }
-
-                Spacer(modifier = Modifier.height((24 * scale).dp))
-
-                Button(
-                    onClick = { onGameModeSelected(gameMode, Difficulty.MEDIUM) },
-                    modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f)
-                ) {
-                    Text(strings.difficultyMedium, fontSize = (34 * scale).sp)
-                }
-
-                Spacer(modifier = Modifier.height((24 * scale).dp))
-
-                Button(
-                    onClick = { onGameModeSelected(gameMode, Difficulty.HARD) },
-                    modifier = Modifier
-                        .height((70 * scale).dp)
-                        .fillMaxWidth(0.8f)
-                ) {
-                    Text(strings.difficultyHard, fontSize = (34 * scale).sp)
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

@@ -28,7 +28,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.foundation.combinedClickable
 
+
+enum class NotesMode {
+    OFF, MANUAL, AUTO
+}
 
 @Composable
 fun GameScreen(
@@ -69,6 +77,7 @@ fun GameScreen(
     }
 
     var isPaused by remember(resetTrigger) { mutableStateOf(savedGame != null) } // Començar pausat si hi ha partida guardada
+    var showPauseDialog by remember { mutableStateOf(false) }
     var shouldSaveOnExit by remember(resetTrigger) { mutableStateOf(true) }
 
     // Factor d'escala adaptatiu
@@ -111,6 +120,8 @@ fun GameScreen(
         )
     }
 
+
+
     var selectedCell by remember(resetTrigger) { mutableStateOf<Pair<Int, Int>?>(null) }
     var selectedNumber by remember(resetTrigger) { mutableStateOf<Int?>(null) }
     var showVictoryDialog by remember(resetTrigger) { mutableStateOf(false) }
@@ -119,6 +130,14 @@ fun GameScreen(
     var showResumeDialog by remember(resetTrigger) { mutableStateOf(savedGame != null) }
     var showDrawingCanvas by remember { mutableStateOf(false) }
     var isPencilMode by remember(resetTrigger) { mutableStateOf(false) }
+
+    // Achievements
+    var showAchievementUnlocked by remember { mutableStateOf(false) }
+    var unlockedAchievement by remember { mutableStateOf<Achievement?>(null) }
+    var pendingVictoryDialog by remember { mutableStateOf(false) }
+    var pendingClearGame by remember { mutableStateOf(false) }
+    var unlockedQueue by remember { mutableStateOf<List<Achievement>>(emptyList()) }
+    var showingAchievement by remember { mutableStateOf<Achievement?>(null) }
 
     // Temps inicial (restaurar si hi ha partida guardada)
     var startTimeOffset by remember(resetTrigger) { mutableStateOf(savedGame?.elapsedSeconds ?: 0) }
@@ -164,8 +183,8 @@ fun GameScreen(
     }
 
 
-    var hintsRemaining by remember(resetTrigger) {
-        mutableStateOf(
+    var hintsRemaining by rememberSaveable {
+        mutableIntStateOf(
             savedGame?.hintsRemaining ?: when (difficulty) {
                 Difficulty.EASY -> 5
                 Difficulty.MEDIUM -> 3
@@ -174,8 +193,20 @@ fun GameScreen(
         )
     }
 
-    var isNotesMode by remember(resetTrigger) { mutableStateOf(false) }
-    val moveHistory = remember(resetTrigger) { mutableStateListOf<List<List<SudokuCell>>>() }
+    // Reseteja pistes quan es genera nou joc
+    LaunchedEffect(resetTrigger) {
+        if (resetTrigger > 0) {  // Només si és nou joc (no inicial)
+            hintsRemaining = when (difficulty) {
+                Difficulty.EASY -> 5
+                Difficulty.MEDIUM -> 3
+                Difficulty.HARD -> 1
+            }
+        }
+    }
+
+    var notesMode by remember(resetTrigger) { mutableStateOf(NotesMode.OFF) }
+    var showAutoNotesDialog by remember { mutableStateOf(false) }
+    val moveHistory = rememberSaveable { mutableStateListOf<List<List<SudokuCell>>>() }
 
     // Guardar automàticament cada canvi
     LaunchedEffect(boardState, hintsRemaining) {
@@ -225,17 +256,209 @@ fun GameScreen(
         }
     }
 
-    // Esborrar partida guardada quan es completa
-    LaunchedEffect(showVictoryDialog) {
-        if (showVictoryDialog) {
-            GameStateManager.clearGame(context, mode, difficulty)  // ← Passa tipus joc i difficulty
+    //Neteja la partica
+    LaunchedEffect(pendingClearGame) {
+        if (pendingClearGame) {
+            GameStateManager.clearGame(context, mode, difficulty)
+            pendingClearGame = false
         }
     }
+
+    // Funció omplir notes automàtiques
+    fun getValidNotesForCell(row: Int, col: Int): Set<Int> {
+        val usedNumbers = mutableSetOf<Int>()
+
+        // Números a la mateixa fila
+        for (c in 0 until 9) {
+            if (boardState[row][c].value != 0) {
+                usedNumbers.add(boardState[row][c].value)
+            }
+        }
+
+        // Números a la mateixa columna
+        for (r in 0 until 9) {
+            if (boardState[r][col].value != 0) {
+                usedNumbers.add(boardState[r][col].value)
+            }
+        }
+
+        // Números al mateix bloc 3x3
+        val blockRow = (row / 3) * 3
+        val blockCol = (col / 3) * 3
+        for (r in blockRow until blockRow + 3) {
+            for (c in blockCol until blockCol + 3) {
+                if (boardState[r][c].value != 0) {
+                    usedNumbers.add(boardState[r][c].value)
+                }
+            }
+        }
+
+        // Retornar números vàlids (1-9 menys els usats)
+        return (1..9).toSet() - usedNumbers
+    }
+
+    // Netejar notes automàtiques - VERSIÓ CORREGIDA
+    fun cleanAutoNotes(newBoard: List<List<SudokuCell>>): List<List<SudokuCell>> {
+        if (notesMode != NotesMode.AUTO) return newBoard
+
+        // ✅ Recalcular notes per TOTES les cel·les del tauler
+        return newBoard.mapIndexed { row, rowList ->
+            rowList.mapIndexed { col, cell ->
+                if (cell.isFixed || cell.value != 0) {
+                    // Cel·la amb número fix o ja omplerta: no tocar
+                    cell
+                } else if (cell.notes.isEmpty()) {
+                    // Cel·la sense notes: no tocar
+                    cell
+                } else {
+                    // ✅ Recalcular notes vàlides basant-se en newBoard (no boardState!)
+                    val usedNumbers = mutableSetOf<Int>()
+
+                    // Números a la mateixa fila
+                    for (c in 0 until 9) {
+                        if (newBoard[row][c].value != 0) {
+                            usedNumbers.add(newBoard[row][c].value)
+                        }
+                    }
+
+                    // Números a la mateixa columna
+                    for (r in 0 until 9) {
+                        if (newBoard[r][col].value != 0) {
+                            usedNumbers.add(newBoard[r][col].value)
+                        }
+                    }
+
+                    // Números al mateix bloc 3x3
+                    val blockRow = (row / 3) * 3
+                    val blockCol = (col / 3) * 3
+                    for (r in blockRow until blockRow + 3) {
+                        for (c in blockCol until blockCol + 3) {
+                            if (newBoard[r][c].value != 0) {
+                                usedNumbers.add(newBoard[r][c].value)
+                            }
+                        }
+                    }
+
+                    // Retornar només notes vàlides
+                    val validNotes = (1..9).toSet() - usedNumbers
+                    cell.copy(notes = cell.notes.intersect(validNotes))
+                }
+            }
+        }
+    }
+
+    // Diàleg AUTO
+    if (showAutoNotesDialog) {
+        AlertDialog(
+            onDismissRequest = { showAutoNotesDialog = false },
+            title = {
+                Text(
+                    text = strings.autoNotesTitle,  // "Notes automàtiques"
+                    fontSize = (28 * scale).sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = strings.autoNotesExplanation,  // Explicació
+                    fontSize = (20 * scale).sp,
+                    lineHeight = (28 * scale).sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAutoNotesDialog = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp)
+                ) {
+                    Text(strings.understood, fontSize = (20 * scale).sp)  // "Entès"
+                }
+            }
+        )
+    }
+
+    // Diàleg fites + victòria
+    LaunchedEffect(pendingVictoryDialog) {
+        if (pendingVictoryDialog) {
+            // 1️⃣ Comprovar achievements
+            val updatedStats = StatisticsManager.loadStatistics(context)
+            val newlyUnlocked = mutableListOf<Achievement>()
+            var unlockedSomething = false
+
+            AchievementManager.checkAchievements(
+                context = context,
+                stats = updatedStats,
+                strings = strings,
+                onNewAchievement = { newAchievement ->
+                    newlyUnlocked.add(newAchievement)
+                }
+            )
+            // Van sortint les fites
+            if (newlyUnlocked.isNotEmpty()) {
+                unlockedQueue = newlyUnlocked
+                showingAchievement = unlockedQueue.first()
+            } else { // Quan s'acaben o no hi ha fites, diàleg felicitats
+                showVictoryDialog = true
+                pendingClearGame = true
+                pendingVictoryDialog = false
+            }
+        }
+    }
+
+    // Diàleg fites
+    if (showingAchievement != null) {
+        AlertDialog(
+            onDismissRequest = { /* forcem a clicar botó */ },
+            icon = {
+                Icon(
+                    Icons.Default.EmojiEvents,
+                    null,
+                    modifier = Modifier.size((64 * scale).dp),
+                    tint = Color(0xFFFFD700)
+                )
+            },
+            title = { Text("🏆 ${strings.achievementUnlocked}") },
+            text = {
+                Column {
+                    Text(
+                        showingAchievement!!.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (20 * scale).sp
+                    )
+                    Text(
+                        showingAchievement!!.description,
+                        fontSize = (16 * scale).sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    // Treure el primer de la cua
+                    unlockedQueue = unlockedQueue.drop(1)
+
+                    if (unlockedQueue.isNotEmpty()) {
+                        showingAchievement = unlockedQueue.first()
+                    } else {
+                        // Ja no queden fites → ara felicitats
+                        showingAchievement = null
+                        showVictoryDialog = true
+                        pendingClearGame = true
+                        pendingVictoryDialog = false
+                    }
+                }) {
+                    Text(strings.awesome)
+                }
+            }
+        )
+    }
+
 
     // Funció per actualitzar el tauler i guardar a l'historial
     fun updateBoard(newBoard: List<List<SudokuCell>>) {
         moveHistory.add(boardState)
-        boardState = newBoard
+        val cleanedBoard = cleanAutoNotes(newBoard)
+        boardState = cleanedBoard
     }
 
     // Comprovar si el tauler està complet i correcte
@@ -275,7 +498,7 @@ fun GameScreen(
                 // ✅ Aturar quan es completa correctament
                 isPaused = true
                 StatisticsManager.recordCompletion(context, difficulty, mode, currentElapsedSeconds)
-                showVictoryDialog = true
+                pendingVictoryDialog = true   // ⬅️ el mostrem després de possibles achievements
             } else {
                 // ✅ Només mostrar el diàleg (el LaunchedEffect dins del diàleg pausarà el timer)
                 showErrorDialog = true
@@ -297,7 +520,7 @@ fun GameScreen(
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.Start
             ) {
-                Spacer(modifier = Modifier.height((36 * scale).dp))
+                Spacer(modifier = Modifier.height((46 * scale).dp))
 
                 // Botó Back a dalt a l'esquerra
                 Button(
@@ -323,39 +546,43 @@ fun GameScreen(
                             Difficulty.MEDIUM -> strings.difficultyMedium
                             Difficulty.HARD -> strings.difficultyHard
                         },
+                        modifier = Modifier.padding(bottom = 0.dp),
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = (24 * scale).sp)
                     )
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(top = 0.dp)
                     ) {
                         IconButton(
-                            onClick = { isPaused = !isPaused },
+                            onClick = {
+                                if (isPaused) {
+                                    isPaused = false  // Reprendre
+                                } else {
+                                    isPaused = true
+                                    showPauseDialog = true  // ✅ Mostrar diàleg quan pauses
+                                }
+                            },
                             modifier = Modifier.size((36 * scale).dp)
                         ) {
                             Icon(
                                 imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                                 contentDescription = if (isPaused) "Reprendre" else "Pausar",
-                                modifier = Modifier.size((24 * scale).dp)
+                                modifier = Modifier
+                                    .size((24 * scale).dp)
+                                    .clickable {
+                                        if (isPaused) {
+                                            isPaused = false
+                                        } else {
+                                            isPaused = true
+                                            showPauseDialog = true  // ✅ Mostrar diàleg
+                                        }
+                                    }
                             )
                         }
 
                         Text(text = displayTimerText, fontSize = (24 * scale).sp)
-
-                        IconButton(
-                            onClick = {
-                                startTimeOffset = 0
-                                resetTimerTrigger++
-                            },
-                            modifier = Modifier.size((36 * scale).dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Reiniciar temps",
-                                modifier = Modifier.size((24 * scale).dp)
-                            )
-                        }
                     }
                 }
 
@@ -373,19 +600,31 @@ fun GameScreen(
                         solution = solution,
                         selectedCell = selectedCell,
                         onCellClick = { row, col ->
-                            if (!boardState[row][col].isFixed) {
+                            if (!isPaused && !boardState[row][col].isFixed) {
                                 if (isPencilMode) {
-                                    // Mode llapis: obrir canvas directament
                                     selectedCell = Pair(row, col)
                                     showDrawingCanvas = true
                                 } else {
-                                    // Mode normal: només seleccionar
                                     selectedCell = Pair(row, col)
                                 }
                             }
+                        },
+                        onCellLongClick = { row, col ->  // ✅ AFEGIR
+                            if (!isPaused && notesMode == NotesMode.AUTO && !boardState[row][col].isFixed) {
+                                val validNotes = getValidNotesForCell(row, col)
+                                val newBoard = boardState.mapIndexed { r, rowList ->
+                                    rowList.mapIndexed { c, cell ->
+                                        if (r == row && c == col) {
+                                            cell.copy(notes = validNotes, value = 0)
+                                        } else {
+                                            cell
+                                        }
+                                    }
+                                }
+                                updateBoard(newBoard)
+                            }
                         }
                     )
-
                 }
             }
 
@@ -414,22 +653,22 @@ fun GameScreen(
                     Text(strings.newGame, fontSize = (20 * scale).sp)
                 }
 
-                Spacer(modifier = Modifier.height((4 * scale).dp))
+                Spacer(modifier = Modifier.height((6 * scale).dp))
 
                 // BOTÓ REINICIAR
                 Button(
                     onClick = {
-                        moveHistory.clear()
-                        boardState = initialBoard.map { row ->
-                            row.map { cell -> cell.copy() }
-                        }
-                        selectedCell = null
-                        selectedNumber = null
-                        startTimeOffset = 0
-                        hintsRemaining = when (difficulty) {
-                            Difficulty.EASY -> 5
-                            Difficulty.MEDIUM -> 3
-                            Difficulty.HARD -> 1
+                        if (!isPaused) {
+                            moveHistory.clear()
+                            boardState = initialBoard.map { row -> row.map { cell -> cell.copy() } }
+                            selectedCell = null
+                            selectedNumber = null
+                            startTimeOffset = 0
+                            hintsRemaining = when (difficulty) {
+                                Difficulty.EASY -> 5
+                                Difficulty.MEDIUM -> 3
+                                Difficulty.HARD -> 1
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
@@ -440,7 +679,7 @@ fun GameScreen(
 
                 Spacer(modifier = Modifier.height((20 * scale).dp))
 
-                // Números (grid 3x3)
+                // Números grid 3x3
                 Column {
                     for (rowNum in 0 until 3) {
                         Row(
@@ -450,34 +689,39 @@ fun GameScreen(
                             for (colNum in 0 until 3) {
                                 val number = rowNum * 3 + colNum + 1
                                 Button(
-                                    onClick = {
-                                        selectedCell?.let { (row, col) ->
-                                            if (!boardState[row][col].isFixed) {
-                                                selectedNumber = number
-                                                val newBoard = boardState.mapIndexed { r, rowList ->
-                                                    rowList.mapIndexed { c, cell ->
-                                                        if (r == row && c == col) {
-                                                            if (isNotesMode) {
-                                                                val newNotes =
-                                                                    if (cell.notes.contains(number)) {
-                                                                        cell.notes - number
-                                                                    } else {
-                                                                        cell.notes + number
+                                    onClick = {  // ✅ AQUÍ! Substituir tot el onClick
+                                        if (!isPaused) {
+                                            selectedCell?.let { (row, col) ->
+                                                if (!boardState[row][col].isFixed) {
+                                                    selectedNumber = number
+                                                    val newBoard = boardState.mapIndexed { r, rowList ->
+                                                        rowList.mapIndexed { c, cell ->
+                                                            if (r == row && c == col) {
+                                                                when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
+                                                                    NotesMode.MANUAL -> {
+                                                                        val newNotes = if (cell.notes.contains(number)) {
+                                                                            cell.notes - number
+                                                                        } else {
+                                                                            cell.notes + number
+                                                                        }
+                                                                        cell.copy(notes = newNotes)
                                                                     }
-                                                                cell.copy(notes = newNotes)
+                                                                    NotesMode.AUTO -> {
+                                                                        // En mode AUTO, posar número directament
+                                                                        cell.copy(value = number, notes = emptySet())
+                                                                    }
+                                                                    NotesMode.OFF -> {
+                                                                        cell.copy(value = number, notes = emptySet())
+                                                                    }
+                                                                }
                                                             } else {
-                                                                cell.copy(
-                                                                    value = number,
-                                                                    notes = emptySet()
-                                                                )
+                                                                cell
                                                             }
-                                                        } else {
-                                                            cell
                                                         }
                                                     }
+                                                    updateBoard(newBoard)
+                                                    selectedNumber = null
                                                 }
-                                                updateBoard(newBoard)
-                                                selectedNumber = null
                                             }
                                         }
                                     },
@@ -488,10 +732,7 @@ fun GameScreen(
                                         containerColor = if (selectedNumber == number) Color.Black else Color.White,
                                         contentColor = if (selectedNumber == number) Color.White else Color.Black
                                     ),
-                                    border = BorderStroke(
-                                        (2 * scale).dp,
-                                        MaterialTheme.colorScheme.onBackground
-                                    ),
+                                    border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
                                     Text(text = number.toString(), fontSize = (32 * scale).sp)
@@ -510,7 +751,11 @@ fun GameScreen(
                 // 5 botons en columna
                 // BOTÓ LLAPIS MODE
                 Button(
-                    onClick = { isPencilMode = !isPencilMode },
+                    onClick = {
+                        if (!isPaused) {
+                            isPencilMode = !isPencilMode
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height((50 * scale).dp),
@@ -529,39 +774,64 @@ fun GameScreen(
 
                 Spacer(modifier = Modifier.height((8 * scale).dp))
 
+                // BOTÓ NOTES amb 3 estats
                 Button(
-                    onClick = { isNotesMode = !isNotesMode },
+                    onClick = {
+                        if (!isPaused) {
+                            notesMode = when (notesMode) {
+                                NotesMode.OFF -> NotesMode.MANUAL
+                                NotesMode.MANUAL -> {
+                                    showAutoNotesDialog = true  // Mostrar explicació
+                                    NotesMode.AUTO
+                                }
+                                NotesMode.AUTO -> NotesMode.OFF
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height((50 * scale).dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isNotesMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        contentColor = if (isNotesMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        containerColor = when (notesMode) {
+                            NotesMode.OFF -> MaterialTheme.colorScheme.surface
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        contentColor = when (notesMode) {
+                            NotesMode.OFF -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.onPrimary
+                        }
                     ),
                     border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
                     Text(
-                        if (isNotesMode) strings.notesOn else strings.notesOff,
+                        text = when (notesMode) {
+                            NotesMode.OFF -> strings.notesOff
+                            NotesMode.MANUAL -> strings.notesManual  // ✅ AFEGIR a Strings
+                            NotesMode.AUTO -> strings.notesAuto  // ✅ AFEGIR a Strings
+                        },
                         fontSize = (20 * scale).sp
                     )
                 }
+
 
                 Spacer(modifier = Modifier.height((8 * scale).dp))
 
                 Button(
                     onClick = {
-                        selectedCell?.let { (row, col) ->
-                            if (!boardState[row][col].isFixed) {
-                                val newBoard = boardState.mapIndexed { r, rowList ->
-                                    rowList.mapIndexed { c, cell ->
-                                        if (r == row && c == col) {
-                                            cell.copy(value = 0, notes = emptySet())
-                                        } else {
-                                            cell
+                        if (!isPaused) {
+                            selectedCell?.let { (row, col) ->
+                                if (!boardState[row][col].isFixed) {
+                                    val newBoard = boardState.mapIndexed { r, rowList ->
+                                        rowList.mapIndexed { c, cell ->
+                                            if (r == row && c == col) {
+                                                cell.copy(value = 0, notes = emptySet())
+                                            } else {
+                                                cell
+                                            }
                                         }
                                     }
+                                    updateBoard(newBoard)
                                 }
-                                updateBoard(newBoard)
                             }
                         }
                     },
@@ -574,7 +844,7 @@ fun GameScreen(
 
                 Button(
                     onClick = {
-                        if (hintsRemaining > 0) {
+                        if (!isPaused && hintsRemaining > 0) {
                             val emptyCells = mutableListOf<Pair<Int, Int>>()
                             for (r in 0 until 9) {
                                 for (c in 0 until 9) {
@@ -618,7 +888,7 @@ fun GameScreen(
 
                 Button(
                     onClick = {
-                        if (moveHistory.isNotEmpty()) {
+                        if (!isPaused && moveHistory.isNotEmpty()) {
                             boardState = moveHistory.removeAt(moveHistory.lastIndex)
                         }
                     },
@@ -646,7 +916,7 @@ fun GameScreen(
                 .padding((16 * scale).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height((38 * scale).dp))
+            Spacer(modifier = Modifier.height((46 * scale).dp))
 
             // FILA SUPERIOR: Botó tornar (esquerra) i Nou Joc (dreta)
             Row(
@@ -662,7 +932,7 @@ fun GameScreen(
                 ) {
                     Text(
                         strings.back,
-                        fontSize = (20 * scale).sp
+                        fontSize = (24 * scale).sp
                     )
                 }
 
@@ -684,18 +954,17 @@ fun GameScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height((4 * scale).dp))
+            Spacer(modifier = Modifier.height((8 * scale).dp))
 
             // FILA AMB NIVELL/TIMER CENTRAT I BOTÓ REINICIAR A LA DRETA
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+            Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top,
             ) {
                 Spacer(modifier = Modifier.width((180 * scale).dp)) // Espai per equilibrar
 
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = when (difficulty) {
@@ -703,6 +972,7 @@ fun GameScreen(
                             Difficulty.MEDIUM -> strings.difficultyMedium
                             Difficulty.HARD -> strings.difficultyHard
                         },
+                        modifier = Modifier.padding(bottom = 0.dp),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontSize = (24 * scale).sp
                         )
@@ -712,50 +982,42 @@ fun GameScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(top = 0.dp)
                     ) {
-                        IconButton(
-                            onClick = { isPaused = !isPaused },
-                            modifier = Modifier.size((36 * scale).dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                contentDescription = if (isPaused) "Reprendre" else "Pausar",
-                                modifier = Modifier.size((24 * scale).dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = if (isPaused) "Reprendre" else "Pausar",
+                            modifier = Modifier
+                                .size((24 * scale).dp)
+                                .clickable {
+                                    if (isPaused) {
+                                        isPaused = false
+                                    } else {
+                                        isPaused = true
+                                        showPauseDialog = true  // ✅ Mostrar diàleg
+                                    }
+                                }
+                        )
+                        Spacer(modifier = Modifier.width((8 * scale).dp))
 
                         Text(text = displayTimerText, fontSize = (24 * scale).sp)
-
-                        IconButton(
-                            onClick = {
-                                startTimeOffset = 0
-                                resetTimerTrigger++
-                            },
-                            modifier = Modifier.size((36 * scale).dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Reiniciar temps",
-                                modifier = Modifier.size((24 * scale).dp)
-                            )
-                        }
                     }
                 }
 
                 Button(
                     onClick = {
-                        moveHistory.clear()
-                        boardState = initialBoard.map { row ->
-                            row.map { cell -> cell.copy() }
-                        }
-                        selectedCell = null
-                        selectedNumber = null
-                        startTimeOffset = 0
-                        hintsRemaining = when (difficulty) {
-                            Difficulty.EASY -> 5
-                            Difficulty.MEDIUM -> 3
-                            Difficulty.HARD -> 1
+                        if (!isPaused) {
+                            moveHistory.clear()
+                            boardState = initialBoard.map { row -> row.map { cell -> cell.copy() } }
+                            selectedCell = null
+                            selectedNumber = null
+                            startTimeOffset = 0
+                            hintsRemaining = when (difficulty) {
+                                Difficulty.EASY -> 5
+                                Difficulty.MEDIUM -> 3
+                                Difficulty.HARD -> 1
+                            }
                         }
                     },
                     modifier = Modifier
@@ -763,33 +1025,47 @@ fun GameScreen(
                         .width((180 * scale).dp),
                     contentPadding = PaddingValues(0.dp),
                 ) {
-                    Text(strings.reset, fontSize = (20 * scale).sp)
+                    Text(strings.reset,
+                        fontSize = (20 * scale).sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height((16 * scale).dp))
+            Spacer(modifier = Modifier.height((12 * scale).dp))
 
             SudokuBoard(
                 board = boardState,
                 solution = solution,
                 selectedCell = selectedCell,
                 onCellClick = { row, col ->
-                    if (!boardState[row][col].isFixed) {
+                    if (!isPaused && !boardState[row][col].isFixed) {
                         if (isPencilMode) {
-                            // Mode llapis: obrir canvas directament
                             selectedCell = Pair(row, col)
                             showDrawingCanvas = true
                         } else {
-                            // Mode normal: només seleccionar
                             selectedCell = Pair(row, col)
                         }
+                    }
+                },
+                onCellLongClick = { row, col ->  // ✅ AFEGIR
+                    if (!isPaused && notesMode == NotesMode.AUTO && !boardState[row][col].isFixed) {
+                        val validNotes = getValidNotesForCell(row, col)
+                        val newBoard = boardState.mapIndexed { r, rowList ->
+                            rowList.mapIndexed { c, cell ->
+                                if (r == row && c == col) {
+                                    cell.copy(notes = validNotes, value = 0)
+                                } else {
+                                    cell
+                                }
+                            }
+                        }
+                        updateBoard(newBoard)
                     }
                 }
             )
 
             Spacer(modifier = Modifier.height((10 * scale).dp))
 
-            // Només els números (sense botó de notes)
+            // Només els números sense botó de notes
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -798,31 +1074,39 @@ fun GameScreen(
             ) {
                 for (number in 1..9) {
                     Button(
-                        onClick = {
-                            selectedCell?.let { (row, col) ->
-                                if (!boardState[row][col].isFixed) {
-                                    selectedNumber = number
-                                    val newBoard = boardState.mapIndexed { r, rowList ->
-                                        rowList.mapIndexed { c, cell ->
-                                            if (r == row && c == col) {
-                                                if (isNotesMode) {
-                                                    val newNotes =
-                                                        if (cell.notes.contains(number)) {
-                                                            cell.notes - number
-                                                        } else {
-                                                            cell.notes + number
+                        onClick = {  // ✅ AQUÍ! Substituir tot el onClick
+                            if (!isPaused) {
+                                selectedCell?.let { (row, col) ->
+                                    if (!boardState[row][col].isFixed) {
+                                        selectedNumber = number
+                                        val newBoard = boardState.mapIndexed { r, rowList ->
+                                            rowList.mapIndexed { c, cell ->
+                                                if (r == row && c == col) {
+                                                    when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
+                                                        NotesMode.MANUAL -> {
+                                                            val newNotes = if (cell.notes.contains(number)) {
+                                                                cell.notes - number
+                                                            } else {
+                                                                cell.notes + number
+                                                            }
+                                                            cell.copy(notes = newNotes)
                                                         }
-                                                    cell.copy(notes = newNotes)
+                                                        NotesMode.AUTO -> {
+                                                            // En mode AUTO, posar número directament
+                                                            cell.copy(value = number, notes = emptySet())
+                                                        }
+                                                        NotesMode.OFF -> {
+                                                            cell.copy(value = number, notes = emptySet())
+                                                        }
+                                                    }
                                                 } else {
-                                                    cell.copy(value = number, notes = emptySet())
+                                                    cell
                                                 }
-                                            } else {
-                                                cell
                                             }
                                         }
+                                        updateBoard(newBoard)
+                                        selectedNumber = null
                                     }
-                                    updateBoard(newBoard)
-                                    selectedNumber = null
                                 }
                             }
                         },
@@ -831,16 +1115,10 @@ fun GameScreen(
                             containerColor = if (selectedNumber == number) Color.Black else Color.White,
                             contentColor = if (selectedNumber == number) Color.White else Color.Black
                         ),
-                        border = BorderStroke(
-                            (2 * scale).dp,
-                            MaterialTheme.colorScheme.onBackground
-                        ),
+                        border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(
-                            text = number.toString(),
-                            fontSize = (40 * scale).sp
-                        )
+                        Text(text = number.toString(), fontSize = (40 * scale).sp)
                     }
                 }
             }
@@ -854,7 +1132,11 @@ fun GameScreen(
             ) {
                 // BOTÓ LLAPIS (NOU)
                 Button(
-                    onClick = { isPencilMode = !isPencilMode },
+                    onClick = {
+                        if (!isPaused) {
+                            isPencilMode = !isPencilMode
+                        }
+                    },
                     modifier = Modifier
                         .height((50 * scale).dp)
                         .weight(1f)
@@ -872,22 +1154,42 @@ fun GameScreen(
                     )
                 }
 
-                // BOTÓ NOTES
+                // BOTÓ NOTES amb 3 estats
                 Button(
-                    onClick = { isNotesMode = !isNotesMode },
+                    onClick = {
+                        if (!isPaused) {
+                            notesMode = when (notesMode) {
+                                NotesMode.OFF -> NotesMode.MANUAL
+                                NotesMode.MANUAL -> {
+                                    showAutoNotesDialog = true  // Mostrar explicació
+                                    NotesMode.AUTO
+                                }
+                                NotesMode.AUTO -> NotesMode.OFF
+                            }
+                        }
+                    },
                     modifier = Modifier
-                        .height((50 * scale).dp)
                         .weight(1f)
-                        .padding(horizontal = (1 * scale).dp),
+                        .height((50 * scale).dp),
                     contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isNotesMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        contentColor = if (isNotesMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        containerColor = when (notesMode) {
+                            NotesMode.OFF -> MaterialTheme.colorScheme.surface
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        contentColor = when (notesMode) {
+                            NotesMode.OFF -> MaterialTheme.colorScheme.onSurface
+                            else -> MaterialTheme.colorScheme.onPrimary
+                        }
                     ),
                     border = BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.onBackground)
                 ) {
                     Text(
-                        text = if (isNotesMode) strings.notesOn else strings.notesOff,
+                        text = when (notesMode) {
+                            NotesMode.OFF -> strings.notesOff
+                            NotesMode.MANUAL -> strings.notesManual  // ✅ AFEGIR a Strings
+                            NotesMode.AUTO -> strings.notesAuto  // ✅ AFEGIR a Strings
+                        },
                         fontSize = (20 * scale).sp
                     )
                 }
@@ -895,18 +1197,20 @@ fun GameScreen(
                 // BOTÓ ESBORRAR
                 Button(
                     onClick = {
-                        selectedCell?.let { (row, col) ->
-                            if (!boardState[row][col].isFixed) {
-                                val newBoard = boardState.mapIndexed { r, rowList ->
-                                    rowList.mapIndexed { c, cell ->
-                                        if (r == row && c == col) {
-                                            cell.copy(value = 0, notes = emptySet())
-                                        } else {
-                                            cell
+                        if (!isPaused) {
+                            selectedCell?.let { (row, col) ->
+                                if (!boardState[row][col].isFixed) {
+                                    val newBoard = boardState.mapIndexed { r, rowList ->
+                                        rowList.mapIndexed { c, cell ->
+                                            if (r == row && c == col) {
+                                                cell.copy(value = 0, notes = emptySet())
+                                            } else {
+                                                cell
+                                            }
                                         }
                                     }
+                                    updateBoard(newBoard)
                                 }
-                                updateBoard(newBoard)
                             }
                         }
                     },
@@ -927,7 +1231,7 @@ fun GameScreen(
                 // BOTÓ PISTA
                 Button(
                     onClick = {
-                        if (hintsRemaining > 0) {
+                        if (!isPaused && hintsRemaining > 0) {
                             val emptyCells = mutableListOf<Pair<Int, Int>>()
                             for (r in 0 until 9) {
                                 for (c in 0 until 9) {
@@ -936,7 +1240,6 @@ fun GameScreen(
                                     }
                                 }
                             }
-
                             if (emptyCells.isNotEmpty()) {
                                 val (r, c) = emptyCells.random()
                                 val newBoard = boardState.mapIndexed { row, rowList ->
@@ -973,7 +1276,7 @@ fun GameScreen(
                 // BOTÓ DESFER
                 Button(
                     onClick = {
-                        if (moveHistory.isNotEmpty()) {
+                        if (!isPaused && moveHistory.isNotEmpty()) {
                             boardState = moveHistory.removeAt(moveHistory.lastIndex)
                         }
                     },
@@ -996,6 +1299,7 @@ fun GameScreen(
             }
         }
     }
+
     // Diàleg de canvas de dibuix
     if (showDrawingCanvas) {
         AlertDialog(
@@ -1004,23 +1308,27 @@ fun GameScreen(
             text = {
                 DrawingCanvas(
                     onDigitRecognized = { digit ->
-                        // Col·locar el dígit reconegut a la cel·la seleccionada
+                        // Col·locar el dígit reconegut a la cella seleccionada
                         selectedCell?.let { (row, col) ->
                             if (!boardState[row][col].isFixed && digit in 1..9) {
                                 val newBoard = boardState.mapIndexed { r, rowList ->
                                     rowList.mapIndexed { c, cell ->
                                         if (r == row && c == col) {
-                                            if (isNotesMode) {
-                                                // Mode notes: afegir/treure nota
-                                                val newNotes = if (cell.notes.contains(digit)) {
-                                                    cell.notes - digit
-                                                } else {
-                                                    cell.notes + digit
+                                            // ✅ CANVIAR AQUESTA PART:
+                                            when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
+                                                NotesMode.MANUAL -> {
+                                                    // Mode notes: afegir/treure nota
+                                                    val newNotes = if (cell.notes.contains(digit)) {
+                                                        cell.notes - digit
+                                                    } else {
+                                                        cell.notes + digit
+                                                    }
+                                                    cell.copy(notes = newNotes)
                                                 }
-                                                cell.copy(notes = newNotes)
-                                            } else {
-                                                // Mode normal: posar número
-                                                cell.copy(value = digit, notes = emptySet())
+                                                NotesMode.AUTO, NotesMode.OFF -> {
+                                                    // Mode normal: posar número
+                                                    cell.copy(value = digit, notes = emptySet())
+                                                }
                                             }
                                         } else {
                                             cell
@@ -1028,16 +1336,53 @@ fun GameScreen(
                                     }
                                 }
                                 updateBoard(newBoard)
+                                showDrawingCanvas = false
                             }
                         }
-                        showDrawingCanvas = false
                     },
                     onDismiss = { showDrawingCanvas = false }
                 )
             },
-            confirmButton = {}
+            confirmButton = { }
         )
     }
+
+    // Diàleg de Pause
+    if (showPauseDialog && isPaused) {
+        AlertDialog(
+            onDismissRequest = { /* No permetre tancar sense reprendre */ },
+            title = {
+                Text(
+                    text = strings.gamePaused,  // ✅ Afegir a Strings.kt
+                    fontSize = (32 * scale).sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = strings.gamePausedMessage,  // ✅ "Prem reprendre per continuar jugant"
+                    fontSize = (24 * scale).sp,
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isPaused = false
+                        showPauseDialog = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((50 * scale).dp)
+                ) {
+                    Text(strings.resume, fontSize = (20 * scale).sp)  // ✅ "Reprendre"
+                }
+            },
+            dismissButton = null
+        )
+    }
+
     // Diàleg de victòria
     if (showVictoryDialog) {
         AlertDialog(
@@ -1276,7 +1621,8 @@ fun SudokuBoard(
     board: List<List<SudokuCell>>,
     solution: List<List<Int>>,
     selectedCell: Pair<Int, Int>?,
-    onCellClick: (Int, Int) -> Unit
+    onCellClick: (Int, Int) -> Unit,
+    onCellLongClick: ((Int, Int) -> Unit)? = null  // ✅ AFEGIR
 ) {
     val scale = AdaptiveSizes.getScaleFactor()
     val configuration = LocalConfiguration.current
@@ -1333,7 +1679,10 @@ fun SudokuBoard(
                                     else -> Color.White                 // Editable: blanc
                                 }
                             )
-                            .clickable { onCellClick(row, col) }
+                            .combinedClickable(
+                                onClick = { onCellClick(row, col) },
+                                onLongClick = { onCellLongClick?.invoke(row, col) }
+                            )
                             .drawBehind {
                                 drawLine(
                                     color = Color.Black,

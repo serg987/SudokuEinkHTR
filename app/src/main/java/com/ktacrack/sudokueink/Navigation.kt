@@ -53,6 +53,7 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
                 onStatisticsClick = {
                     navController.navigate(Screen.Statistics.route)
                 },
+                onAchievementsClick = { navController.navigate("achievements") },
                 onBackToMainMenu = {
                     // Tornar al menú principal (des del submenu)
                     navController.navigate(Screen.Menu.createRoute("none")) {
@@ -61,6 +62,7 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
                 },
                 onThemeChange = onThemeChange
             )
+
         }
 
         // Pantalla de joc
@@ -102,6 +104,12 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
                         popUpTo(Screen.Menu.route) { inclusive = true }
                     }
                 }
+            )
+        }
+        // Pantalla Achievements
+        composable("achievements") {
+            AchievementsScreen(
+                onBack = { navController.popBackStack() }
             )
         }
     }

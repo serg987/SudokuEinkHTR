@@ -3,7 +3,6 @@ package com.ktacrack.sudokueink
 import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 @Serializable
@@ -23,7 +22,12 @@ data class GameStatistics(
     val bestTimeEasyAttack: Int? = null,
     val bestTimeMediumAttack: Int? = null,
     val bestTimeHardAttack: Int? = null
-)
+){
+    val totalGamesCompleted: Int
+        get() = gamesCompletedEasyNormal + gamesCompletedMediumNormal +
+                gamesCompletedHardNormal + gamesCompletedEasyAttack +
+                gamesCompletedMediumAttack + gamesCompletedHardAttack
+}
 
 object StatisticsManager {
     private const val PREFS_NAME = "sudoku_statistics"

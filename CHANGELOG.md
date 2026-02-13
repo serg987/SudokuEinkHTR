@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
+---
+
+## [1.4.0] - 2026-02-13
+
+### Added
+- **Smart Auto Notes Mode** - Intelligent note management system
+    - Three modes: OFF, Manual, and Auto
+    - Long press any cell to auto-fill all valid notes
+    - Automatic cleanup of incompatible notes as you fill the board
+    - One-time tutorial dialog explaining Auto Notes functionality
+- **Achievement System** - Track your progress with 10 unlockable achievements
+    - First win, milestone completions (10/50/100 games)
+    - Speed achievements (complete Easy under 3min, Hard under 10min)
+    - Difficulty mastery (25 Hard games)
+    - Attack Mode survivor
+    - No hints challenge (5 games without hints)
+    - Perfect games (10 games without errors)
+- **Pause Dialog** - Proper game pause overlay
+    - Blocks all game interactions when paused
+    - Centered pause dialog preventing accidental clicks
+    - Separate layouts for portrait and landscape modes
+
+### Improved
+- Statistics tracking now supports achievement system
+- Enhanced game state management for tracking hints and errors
+- Better note management with conflict detection
+- UI consistency across all game modes
+
+### Fixed
+- Notes not updating when placing numbers in Auto mode
+- Timer continuing during pause state
+- Game allowing moves while paused
+
+### Technical
+- Version code: 4 → 5
+- Version name: 1.3 → 1.4.0
+- New `Achievement.kt` and `AchievementManager.kt` for achievement system
+- New `AchievementScreen.kt` for viewing unlocked achievements
+- Enhanced `NotesMode` enum (OFF, MANUAL, AUTO)
+- New `cleanAutoNotes()` function for smart note cleanup
+- New `getValidNotesForCell()` function for note calculation
+- Achievement data persistence with SharedPreferences
+
+---
 
 ## [1.3] - 2026-02-10
 
@@ -63,12 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [1.1.0] - 2026-02-09
+
 ### Fixed
 - Puzzles with multiple solutions issue
 - Puzzle quality improvements
 
 ### Added
-• All Sudoku puzzles now have exactly one unique solution
+- All Sudoku puzzles now have exactly one unique solution
 
 ### Improved
 - Enhanced puzzle generation algorithm
@@ -77,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [1.1] - 2026-02-08
+
 ### Fixed
 - Reset button now works correctly after loading a saved game
 - Original initial board is now properly stored separately from saved game state
@@ -109,6 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [1.0.0] - 2026-02-07
+
 ### Added
 - Initial release
 - 3 difficulty levels (Easy, Medium, Hard)
