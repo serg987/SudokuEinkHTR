@@ -92,7 +92,7 @@ object AchievementManager {
             description = strings.achievementAttackSurvivorDesc,  // ✅
             icon = Icons.Default.LocalFireDepartment,
             targetValue = 1,
-            currentValue = 0 // Cal tracking especial
+            currentValue = stats.gamesCompletedUnder10Seconds
         ),
 
         // SENSE PISTES
@@ -102,7 +102,7 @@ object AchievementManager {
             description = strings.achievementNoHintsDesc,  // ✅
             icon = Icons.Default.Psychology,
             targetValue = 5,
-            currentValue = 0 // Cal tracking
+            currentValue = stats.gamesCompletedNoHints
         ),
 
         // PERFECTE
@@ -112,8 +112,39 @@ object AchievementManager {
             description = strings.achievementNoErrorsDesc,  // ✅
             icon = Icons.Default.CheckCircle,
             targetValue = 10,
-            currentValue = 0 // Cal tracking
+            currentValue = stats.gamesCompletedNoErrors
+        ),
+
+        // 7 Sudokus diaris seguits
+        Achievement(
+            id = "daily_streak_7",
+            title = strings.achievementDailyStreak7,
+            description = strings.achievementDailyStreak7Desc,
+            icon = Icons.Default.LocalFireDepartment,
+            targetValue = 7,
+            currentValue = stats.dailyStreak
+        ),
+
+        // Sudoku diari sense pistes ni errors
+        Achievement(
+            id = "daily_perfect",
+            title = strings.achievementDailyPerfect,
+            description = strings.achievementDailyPerfectDesc,
+            targetValue = 3,
+            currentValue = stats.dailyGamesPerfectNoHintsNoErrors,
+            icon = Icons.Default.EmojiEvents
+        ),
+
+        // 50 sodokus zen
+        Achievement(
+            id = "zen_master",
+            title = strings.achievementZenMaster,
+            description = strings.achievementZenMasterDesc,
+            targetValue = 50,
+            currentValue = stats.gamesCompletedZen,
+            icon = Icons.Default.Psychology
         )
+
     )
 
     // GUARDAR/CARREGAR

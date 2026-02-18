@@ -4,9 +4,11 @@ import kotlin.random.Random
 
 object SudokuGenerator {
 
-    fun generate(difficulty: Difficulty): SudokuGame {
+    fun generate(difficulty: Difficulty, seed: Int? = null): SudokuGame {
+        val random = if (seed != null) Random(seed) else Random.Default
+
         // Generar una solució completament aleatòria des de zero
-        val solution = generateRandomSolution()
+        val solution = generateRandomSolution(random)
 
         // Determinar quantes caselles deixem buides
         val cellsToRemove = when (difficulty) {
@@ -16,19 +18,24 @@ object SudokuGenerator {
         }
 
         // Crear el puzzle amb verificació de solució única
-        val board = createPuzzleWithUniqueCheck(solution, cellsToRemove)
+        val board = createPuzzleWithUniqueCheck(solution, cellsToRemove, random)
         return SudokuGame(board, solution)
     }
 
     // ✅ NOVA: Genera una solució completament aleatòria
-    private fun generateRandomSolution(): List<List<Int>> {
+    private fun generateRandomSolution(random: Random): List<List<Int>> {
         val board = MutableList(9) { MutableList(9) { 0 } }
-        fillBoardRandomly(board, 0, 0)
+        fillBoardRandomly(board, 0, 0, random)
         return board.map { it.toList() }
     }
 
     // ✅ NOVA: Emplena el tauler amb backtracking aleatori
-    private fun fillBoardRandomly(board: MutableList<MutableList<Int>>, row: Int, col: Int): Boolean {
+    private fun fillBoardRandomly(
+        board: MutableList<MutableList<Int>>,
+        row: Int,
+        col: Int,
+        random: Random
+    ): Boolean {
         // Si hem arribat al final del tauler, hem acabat
         if (row == 9) return true
 
@@ -36,8 +43,8 @@ object SudokuGenerator {
         val nextRow = if (col == 8) row + 1 else row
         val nextCol = if (col == 8) 0 else col + 1
 
-        // Crear llista de números 1-9 en ordre aleatori
-        val numbers = (1..9).shuffled()
+        // Crear llista de números 1-9 en ordre aleatori  (sempre  igual si Daily)
+        val numbers = (1..9).shuffled(random)
 
         // Provar cada número
         for (num in numbers) {
@@ -45,7 +52,7 @@ object SudokuGenerator {
                 board[row][col] = num
 
                 // Recursivament emplenar la següent casella
-                if (fillBoardRandomly(board, nextRow, nextCol)) {
+                if (fillBoardRandomly(board, nextRow, nextCol, random)) {
                     return true
                 }
 
@@ -62,7 +69,7 @@ object SudokuGenerator {
         board: List<List<Int>>,
         row: Int,
         col: Int,
-        num: Int
+        num: Int,
     ): Boolean {
         // Comprovar fila
         if (board[row].contains(num)) return false
@@ -87,7 +94,8 @@ object SudokuGenerator {
     // Crea puzzle verificant que tingui solució única
     private fun createPuzzleWithUniqueCheck(
         solution: List<List<Int>>,
-        cellsToRemove: Int
+        cellsToRemove: Int,
+        random: Random
     ): List<List<SudokuCell>> {
         val board = solution.map { row ->
             row.map { value ->
@@ -96,7 +104,7 @@ object SudokuGenerator {
         }.toMutableList()
 
         // Llista de totes les posicions en ordre aleatori
-        val positions = (0 until 81).shuffled().toMutableList()
+        val positions = (0 until 81).shuffled(random).toMutableList()
         var removed = 0
         var attemptIndex = 0
 

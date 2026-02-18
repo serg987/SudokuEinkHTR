@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class SavedGameState(
     val difficulty: String,
-    val mode: String, // ← NOU: Afegir mode
+    val mode: String,
     val board: List<List<SavedCell>>,
     val solution: List<List<Int>>,
     val elapsedSeconds: Int,
@@ -23,61 +23,40 @@ data class SavedCell(
 )
 
 object GameStateManager {
-    private const val PREFS_NAME = "sudoku_game_state"
+    private const val PREFS_NAME = "sudoku_games"  // ✅ UNIFICAT
 
-    // ✅ Claus específiques per mode I dificultat
-    private fun getKeyForGame(mode: GameMode, difficulty: Difficulty): String {
-        return "game_state_${mode.name}_${difficulty.name}"
+    fun saveGame(context: Context, savedState: SavedGameState, isDaily: Boolean, isZenMode: Boolean) {
+        val gameKey = "game_${savedState.difficulty}_${savedState.mode}_${if(isDaily) "daily" else if(isZenMode) "zen" else "normal"}"
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val json = Json.encodeToString(savedState)  // ✅ CORREGIT: savedState
+
+        prefs.edit().putString("game_$gameKey", json).apply()
     }
 
-    fun saveGame(context: Context, state: SavedGameState) {
+    fun loadGame(context: Context, mode: GameMode, difficulty: Difficulty, isDaily: Boolean, isZenMode: Boolean): SavedGameState? {
+        val gameKey = "game_${difficulty}_${mode}_${if(isDaily) "daily" else if(isZenMode) "zen" else "normal"}"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val json = Json.encodeToString(state)
+        val json = prefs.getString("game_$gameKey", null) ?: return null
 
-        // Convertir String a GameMode i Difficulty
-        val mode = when (state.mode) {
-            "NORMAL" -> GameMode.NORMAL
-            "ATTACK" -> GameMode.ATTACK
-            else -> return
-        }
-
-        val difficulty = when (state.difficulty) {
-            "EASY" -> Difficulty.EASY
-            "MEDIUM" -> Difficulty.MEDIUM
-            "HARD" -> Difficulty.HARD
-            else -> return
-        }
-
-        // Guardar amb clau específica
-        val key = getKeyForGame(mode, difficulty)
-        prefs.edit().putString(key, json).apply()
-    }
-
-    fun loadGame(context: Context, mode: GameMode, difficulty: Difficulty): SavedGameState? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val key = getKeyForGame(mode, difficulty)
-        val json = prefs.getString(key, null) ?: return null
         return try {
-            Json.decodeFromString(json)
+            Json.decodeFromString<SavedGameState>(json)  // ✅ Retorna SavedGameState
         } catch (e: Exception) {
             null
         }
     }
 
-    fun clearGame(context: Context, mode: GameMode, difficulty: Difficulty) {
+    fun clearGame(context: Context, mode: GameMode, difficulty: Difficulty, isDaily: Boolean, isZenMode: Boolean) {
+        val gameKey = "game_${difficulty}_${mode}_${if(isDaily) "daily" else if(isZenMode) "zen" else "normal"}"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val key = getKeyForGame(mode, difficulty)
-        prefs.edit().remove(key).apply()
+        prefs.edit().remove("game_$gameKey").apply()
     }
 
-    // ✅ NOU: Comprovar si existeix partida guardada
-    fun hasSavedGame(context: Context, mode: GameMode, difficulty: Difficulty): Boolean {
+    fun hasSavedGame(context: Context, mode: GameMode, difficulty: Difficulty, isDaily: Boolean = false, isZenMode: Boolean = false): Boolean {
+        val gameKey = "game_${difficulty}_${mode}_${if(isDaily) "daily" else if(isZenMode) "zen" else "normal"}"
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val key = getKeyForGame(mode, difficulty)
-        return prefs.contains(key)
+        return prefs.contains("game_$gameKey")
     }
 
-    // Funció opcional per esborrar TOTES les partides
     fun clearAllGames(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().apply()

@@ -12,13 +12,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.font.FontStyle
+
 
 @Composable
 fun MainScreen(
     currentMode: String? = null,
     onModeSelected: (String) -> Unit = {},
-    onGameModeSelected: (GameMode, Difficulty) -> Unit = { _, _ -> },
+    onGameModeSelected: (GameMode, Difficulty, Boolean) -> Unit = { _, _, _ -> },  // ← MODIFICAT: afegit Boolean
     onStatisticsClick: () -> Unit = {},
+    onDailySudokuClick: () -> Unit = {},
     onAchievementsClick: () -> Unit = {},
     onBackToMainMenu: () -> Unit = {},
     onThemeChange: (Boolean) -> Unit = {}
@@ -26,9 +30,12 @@ fun MainScreen(
     val context = LocalContext.current
     var currentLanguage by remember { mutableStateOf(LanguageManager.loadLanguage(context)) }
     var isDarkTheme by remember { mutableStateOf(ThemeManager.loadDarkMode(context)) }
+    var isZenMode by remember { mutableStateOf(false) }  // ← NOU: estat Mode Zen
     val scale = AdaptiveSizes.getScaleFactor()
+    var showAlreadyPlayedDialog by remember { mutableStateOf(false) }
 
     BackHandler(enabled = currentMode != null) {
+        isZenMode = false  // Reset quan tornem
         onBackToMainMenu()
     }
 
@@ -141,7 +148,7 @@ fun MainScreen(
                     }
                 }
 
-                // ✅ CONTINGUT CENTRAT (títol + botons)
+                //  CONTINGUT CENTRAT (títol + botons)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -180,6 +187,72 @@ fun MainScreen(
                         Text(strings.attackMode, fontSize = (34 * scale).sp)
                     }
 
+                    Spacer(modifier = Modifier.height((20 * scale).dp))
+
+                    // Botó Daily
+                    Button(
+                        onClick = {
+                            if (DailySudokuManager.hasPlayedToday(context)) {
+                                showAlreadyPlayedDialog =
+                                    true  //  Mostra diàleg sense canviar pantalla
+                            } else {
+                                onDailySudokuClick()  // Navega normalment
+                            }
+                        },
+                        modifier = Modifier
+                            //.height((80 * scale).dp)
+                            .wrapContentHeight()
+                            .fillMaxWidth(0.8f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9800),
+                            contentColor = Color.White
+                    ),
+                        border = BorderStroke((2 * scale).dp, Color(0xFFF57C00))
+                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📅 ${strings.dailySudoku}", fontSize = (34 * scale).sp)
+                        Text(
+                            text = "${strings.todayDifficulty}: ${DailySudokuManager.getDailyDifficultyName(strings)}",
+                            fontSize = (20 * scale).sp,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+
+                    // Diàleg "Ja has jugat avui"
+                    if (showAlreadyPlayedDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showAlreadyPlayedDialog = false },
+                            title = {
+                                Text(
+                                    text = strings.alreadyPlayedToday,
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            text = {
+                                Column {
+                                    Text(
+                                        text = "${strings.dailyBestTime}: ${formatTime(DailySudokuManager.getDailyBestTime(context))}",
+                                        fontSize = 24.sp
+                                    )
+                                    Spacer(modifier = Modifier.height((8 * scale).dp))
+                                    Text(
+                                        text = "🔥 ${strings.currentStreak}: ${DailySudokuManager.getCurrentStreak(context)} ${strings.days}",
+                                        fontSize = 24.sp,
+                                        color = Color(0xFFFF9800),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = { showAlreadyPlayedDialog = false }) {
+                                    Text(strings.back, fontSize = 18.sp)
+                                }
+                            }
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height((32 * scale).dp))
 
                     Button(
@@ -216,15 +289,18 @@ fun MainScreen(
                 // ✅ TEXT "CREATED BY" (sempre baix)
                 Text(
                     text = strings.createdBy,
-                    fontSize = (18 * scale).sp,
-                    color = if (isDarkTheme) Color.LightGray else Color.Gray,
+                    fontSize = (20 * scale).sp,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = (16 * scale).dp)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(bottom = (8 * scale).dp)
                 )
 
+
             } else {
-                // ✅ SUBMENU DIFICULTATS
+                // ✅ SUBMENU DIFICULTATS AMB MODE ZEN
                 val gameMode = try {
                     GameMode.valueOf(currentMode)
                 } catch (e: Exception) {
@@ -245,7 +321,10 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.Start
                     ) {
                         Button(
-                            onClick = onBackToMainMenu,
+                            onClick = {
+                                isZenMode = false  // Reset Mode Zen quan tornem
+                                onBackToMainMenu()
+                            },
                             modifier = Modifier
                                 .height((50 * scale).dp)
                                 .width((160 * scale).dp),
@@ -255,7 +334,7 @@ fun MainScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(0.5f))
 
                     Text(
                         text = if (gameMode == GameMode.NORMAL) strings.normalMode else strings.attackMode,
@@ -268,8 +347,21 @@ fun MainScreen(
 
                     Spacer(modifier = Modifier.height((40 * scale).dp))
 
+                    // NOU: Toggle Mode Zen
+                    if (gameMode == GameMode.NORMAL) {
+                        ZenModeToggle(
+                            isZenMode = isZenMode,
+                            onToggle = { isZenMode = it },
+                            scale = scale,
+                            strings = strings
+                        )
+
+                        Spacer(modifier = Modifier.height((32 * scale).dp))
+                    }
+
+                    // Botons de dificultat
                     Button(
-                        onClick = { onGameModeSelected(gameMode, Difficulty.EASY) },
+                        onClick = { onGameModeSelected(gameMode, Difficulty.EASY, isZenMode) },
                         modifier = Modifier
                             .height((70 * scale).dp)
                             .fillMaxWidth(0.8f)
@@ -280,7 +372,7 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height((20 * scale).dp))
 
                     Button(
-                        onClick = { onGameModeSelected(gameMode, Difficulty.MEDIUM) },
+                        onClick = { onGameModeSelected(gameMode, Difficulty.MEDIUM, isZenMode) },
                         modifier = Modifier
                             .height((70 * scale).dp)
                             .fillMaxWidth(0.8f)
@@ -291,7 +383,7 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height((20 * scale).dp))
 
                     Button(
-                        onClick = { onGameModeSelected(gameMode, Difficulty.HARD) },
+                        onClick = { onGameModeSelected(gameMode, Difficulty.HARD, isZenMode) },
                         modifier = Modifier
                             .height((70 * scale).dp)
                             .fillMaxWidth(0.8f)
@@ -302,6 +394,70 @@ fun MainScreen(
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
+        }
+    }
+}
+
+// ✨ COMPONENT NOU: Toggle Mode Zen
+@Composable
+fun ZenModeToggle(
+    isZenMode: Boolean,
+    onToggle: (Boolean) -> Unit,
+    scale: Float,
+    strings: Strings
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(0.8f)
+            .height((80 * scale).dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isZenMode)
+                Color(0xFFE8F5E9)  // Verd suau quan actiu
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = if (isZenMode)
+            BorderStroke((3 * scale).dp, Color(0xFF4CAF50))
+        else
+            BorderStroke((2 * scale).dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = (16 * scale).dp,    // Esquerra
+                    end = (32 * scale).dp,      // Dreta
+                    top = (4 * scale).dp,       // Dalt (reduït)
+                    bottom = (4 * scale).dp     // Baix (reduït)horizontal = (32 * scale).dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "🧘 ${strings.zenMode}",
+                    fontSize = (28 * scale).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isZenMode) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = strings.zenModeDescription,
+                    fontSize = (20 * scale).sp,
+                    color = if (isZenMode) Color(0xFF388E3C) else Color.Gray
+                )
+            }
+
+            Switch(
+                checked = isZenMode,
+                onCheckedChange = onToggle,
+                modifier = Modifier.scale(scale * 1.5f),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF4CAF50),
+                    checkedTrackColor = Color(0xFF81C784),
+                    uncheckedThumbColor = Color.Gray,
+                    uncheckedTrackColor = Color.LightGray
+                )
+            )
         }
     }
 }

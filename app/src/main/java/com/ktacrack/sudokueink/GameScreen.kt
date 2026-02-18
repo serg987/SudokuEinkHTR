@@ -25,7 +25,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,24 +41,29 @@ enum class NotesMode {
 fun GameScreen(
     difficulty: Difficulty,
     mode: GameMode,
+    isZenMode: Boolean = false,
+    isDaily: Boolean = false,
+    dailySudoku: SudokuGame? = null,
+    onDailyComplete: ((Int) -> Unit)? = null,
     onBack: () -> Unit
-) {
+){
     val context = LocalContext.current
     val strings = rememberStrings()
 
-    var resetTrigger by remember { mutableStateOf(0) }
-    var resetTimerTrigger by remember(resetTrigger) { mutableStateOf(0) } // Reiniciar timer
+    var resetTrigger by remember { mutableIntStateOf(0) }  // mutableIntStateOf
+    var resetTimerTrigger by remember(resetTrigger) { mutableIntStateOf(0) }
+
+    val dailyGame = DailySudokuManager.generateDailySudoku() // Retorna daily sudoku
 
     // Intentar carregar partida guardada
-    val savedGame = remember(resetTrigger) {
-        if (resetTrigger == 0) {
-            GameStateManager.loadGame(context, mode, difficulty)  // ← Passa tipus joc i difficulty
-        } else null
-    }
+    val savedGame = remember(resetTrigger, isZenMode) {
+        if (resetTrigger == 0)
+            GameStateManager.loadGame(context, mode, difficulty, isDaily, isZenMode)
+        else null
+    } as SavedGameState?
 
-    val initialGame = remember(resetTrigger) {
+    val initialGame = remember(resetTrigger, isDaily) {
         if (savedGame != null) {
-            // Restaurar des de partida guardada
             val restoredBoard = savedGame.board.map { row ->
                 row.map { savedCell ->
                     SudokuCell(
@@ -71,47 +75,42 @@ fun GameScreen(
             }
             SudokuGame(restoredBoard, savedGame.solution)
         } else {
-            // Generar nou joc
-            SudokuGenerator.generate(difficulty)
+            if (isDaily && dailySudoku != null) {
+                // ✅ dailySudoku ja és un SudokuGame complet
+                dailySudoku
+            } else {
+                // Generar sudoku normal
+                SudokuGenerator.generate(difficulty)
+            }
         }
     }
 
-    var isPaused by remember(resetTrigger) { mutableStateOf(savedGame != null) } // Començar pausat si hi ha partida guardada
+    var isPaused by remember(resetTrigger) { mutableStateOf(savedGame != null) }
     var showPauseDialog by remember { mutableStateOf(false) }
     var shouldSaveOnExit by remember(resetTrigger) { mutableStateOf(true) }
 
-    // Factor d'escala adaptatiu
     val scale = AdaptiveSizes.getScaleFactor()
-
-    // Detectar orientació
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // Guardar el tauler REALMENT inicial (només números fixos) per poder reiniciar
     val initialBoard = remember(resetTrigger) {
         if (savedGame != null) {
-            // Si ve de partida guardada, crear tauler només amb fixos
             savedGame.board.map { row ->
                 row.map { savedCell ->
                     SudokuCell(
                         value = if (savedCell.isFixed) savedCell.value else 0,
                         isFixed = savedCell.isFixed,
-                        notes = emptySet()
+                        notes = savedCell.notes.toSet()
                     )
                 }
             }
         } else {
-            // Si és nou joc, usar l'inicial directament
-            initialGame.board.map { row ->
-                row.map { cell -> cell.copy() }
-            }
+            initialGame.board.map { row -> row.map { it.copy() } }
         }
     }
 
-    // Guardem la solució correcta
     val solution = remember(resetTrigger) { initialGame.solution }
 
-    // Estat editable del tauler
     var boardState by remember(resetTrigger) {
         mutableStateOf(
             initialGame.board.map { row ->
@@ -120,10 +119,9 @@ fun GameScreen(
         )
     }
 
-
-
     var selectedCell by remember(resetTrigger) { mutableStateOf<Pair<Int, Int>?>(null) }
     var selectedNumber by remember(resetTrigger) { mutableStateOf<Int?>(null) }
+    var moveCount by remember(resetTrigger) { mutableIntStateOf(0) }  // ✅ NOU
     var showVictoryDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showErrorDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showTimeoutDialog by remember(resetTrigger) { mutableStateOf(false) }
@@ -131,24 +129,16 @@ fun GameScreen(
     var showDrawingCanvas by remember { mutableStateOf(false) }
     var isPencilMode by remember(resetTrigger) { mutableStateOf(false) }
 
-    // Achievements
-    var showAchievementUnlocked by remember { mutableStateOf(false) }
-    var unlockedAchievement by remember { mutableStateOf<Achievement?>(null) }
+    // ✅ ESBORRADES: showAchievementUnlocked i unlockedAchievement (no s'usaven)
     var pendingVictoryDialog by remember { mutableStateOf(false) }
     var pendingClearGame by remember { mutableStateOf(false) }
     var unlockedQueue by remember { mutableStateOf<List<Achievement>>(emptyList()) }
     var showingAchievement by remember { mutableStateOf<Achievement?>(null) }
 
-    // Temps inicial (restaurar si hi ha partida guardada)
-    var startTimeOffset by remember(resetTrigger) { mutableStateOf(savedGame?.elapsedSeconds ?: 0) }
+    var startTimeOffset by remember(resetTrigger) { mutableIntStateOf(savedGame?.elapsedSeconds ?: 0) }
+    var currentElapsedSeconds by remember(resetTrigger) { mutableIntStateOf(startTimeOffset) }
+    var pausedAtSeconds by remember(resetTrigger) { mutableIntStateOf(0) }
 
-    // Variable per guardar els segons actuals
-    var currentElapsedSeconds by remember(resetTrigger) { mutableStateOf(startTimeOffset) }
-
-    // Variable per guardar el temps quan es fa pauta/finestra error
-    var pausedAtSeconds by remember(resetTrigger) { mutableStateOf(0) }
-
-    // Time Attack: límit de temps segons mode i dificultat
     val timeLimitSeconds = remember(mode, difficulty) {
         if (mode == GameMode.ATTACK) {
             when (difficulty) {
@@ -161,18 +151,16 @@ fun GameScreen(
         }
     }
 
-    // Temps acumulat
     val timerText = rememberTimer(
         resetTrigger = resetTrigger,
         startOffset = startTimeOffset,
-        isPaused = isPaused,
+        isPaused = isPaused || isZenMode,  // ✅ Pausar timer si Mode Zen
         resetTimer = resetTimerTrigger,
         onTimeUpdate = { elapsedSeconds ->
             currentElapsedSeconds = elapsedSeconds
         }
     )
 
-    // Temps restant
     val displayTimerText = if (timeLimitSeconds != null) {
         val remaining = (timeLimitSeconds - currentElapsedSeconds).coerceAtLeast(0)
         val minutes = remaining / 60
@@ -181,7 +169,6 @@ fun GameScreen(
     } else {
         timerText
     }
-
 
     var hintsRemaining by rememberSaveable {
         mutableIntStateOf(
@@ -193,9 +180,8 @@ fun GameScreen(
         )
     }
 
-    // Reseteja pistes quan es genera nou joc
     LaunchedEffect(resetTrigger) {
-        if (resetTrigger > 0) {  // Només si és nou joc (no inicial)
+        if (resetTrigger > 0) {
             hintsRemaining = when (difficulty) {
                 Difficulty.EASY -> 5
                 Difficulty.MEDIUM -> 3
@@ -208,7 +194,7 @@ fun GameScreen(
     var showAutoNotesDialog by remember { mutableStateOf(false) }
     val moveHistory = rememberSaveable { mutableStateListOf<List<List<SudokuCell>>>() }
 
-    // Guardar automàticament cada canvi
+    // Guardar automàticament
     LaunchedEffect(boardState, hintsRemaining) {
         if (!showVictoryDialog) {
             val savedState = SavedGameState(
@@ -224,14 +210,13 @@ fun GameScreen(
                     }
                 },
                 solution = solution,
-                elapsedSeconds = currentElapsedSeconds,  // ← Usar la variable
+                elapsedSeconds = currentElapsedSeconds,
                 hintsRemaining = hintsRemaining
             )
-            GameStateManager.saveGame(context, savedState)
+            GameStateManager.saveGame(context, savedState, isDaily, isZenMode)
         }
     }
 
-    // Guardar quan l'usuari surt de la pantalla
     DisposableEffect(Unit) {
         onDispose {
             if (!showVictoryDialog && shouldSaveOnExit) {
@@ -248,41 +233,36 @@ fun GameScreen(
                         }
                     },
                     solution = solution,
-                    elapsedSeconds = currentElapsedSeconds,  // ← Usar la variable
+                    elapsedSeconds = currentElapsedSeconds,
                     hintsRemaining = hintsRemaining
                 )
-                GameStateManager.saveGame(context, savedState)
+                GameStateManager.saveGame(context, savedState, isDaily, isZenMode)
             }
         }
     }
 
-    //Neteja la partica
     LaunchedEffect(pendingClearGame) {
         if (pendingClearGame) {
-            GameStateManager.clearGame(context, mode, difficulty)
+            GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
             pendingClearGame = false
         }
     }
 
-    // Funció omplir notes automàtiques
     fun getValidNotesForCell(row: Int, col: Int): Set<Int> {
         val usedNumbers = mutableSetOf<Int>()
 
-        // Números a la mateixa fila
         for (c in 0 until 9) {
             if (boardState[row][c].value != 0) {
                 usedNumbers.add(boardState[row][c].value)
             }
         }
 
-        // Números a la mateixa columna
         for (r in 0 until 9) {
             if (boardState[r][col].value != 0) {
                 usedNumbers.add(boardState[r][col].value)
             }
         }
 
-        // Números al mateix bloc 3x3
         val blockRow = (row / 3) * 3
         val blockCol = (col / 3) * 3
         for (r in blockRow until blockRow + 3) {
@@ -293,42 +273,33 @@ fun GameScreen(
             }
         }
 
-        // Retornar números vàlids (1-9 menys els usats)
         return (1..9).toSet() - usedNumbers
     }
 
-    // Netejar notes automàtiques - VERSIÓ CORREGIDA
     fun cleanAutoNotes(newBoard: List<List<SudokuCell>>): List<List<SudokuCell>> {
         if (notesMode != NotesMode.AUTO) return newBoard
 
-        // ✅ Recalcular notes per TOTES les cel·les del tauler
         return newBoard.mapIndexed { row, rowList ->
             rowList.mapIndexed { col, cell ->
                 if (cell.isFixed || cell.value != 0) {
-                    // Cel·la amb número fix o ja omplerta: no tocar
                     cell
                 } else if (cell.notes.isEmpty()) {
-                    // Cel·la sense notes: no tocar
                     cell
                 } else {
-                    // ✅ Recalcular notes vàlides basant-se en newBoard (no boardState!)
                     val usedNumbers = mutableSetOf<Int>()
 
-                    // Números a la mateixa fila
                     for (c in 0 until 9) {
                         if (newBoard[row][c].value != 0) {
                             usedNumbers.add(newBoard[row][c].value)
                         }
                     }
 
-                    // Números a la mateixa columna
                     for (r in 0 until 9) {
                         if (newBoard[r][col].value != 0) {
                             usedNumbers.add(newBoard[r][col].value)
                         }
                     }
 
-                    // Números al mateix bloc 3x3
                     val blockRow = (row / 3) * 3
                     val blockCol = (col / 3) * 3
                     for (r in blockRow until blockRow + 3) {
@@ -339,7 +310,6 @@ fun GameScreen(
                         }
                     }
 
-                    // Retornar només notes vàlides
                     val validNotes = (1..9).toSet() - usedNumbers
                     cell.copy(notes = cell.notes.intersect(validNotes))
                 }
@@ -347,20 +317,19 @@ fun GameScreen(
         }
     }
 
-    // Diàleg AUTO
     if (showAutoNotesDialog) {
         AlertDialog(
             onDismissRequest = { showAutoNotesDialog = false },
             title = {
                 Text(
-                    text = strings.autoNotesTitle,  // "Notes automàtiques"
+                    text = strings.autoNotesTitle,
                     fontSize = (28 * scale).sp,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = strings.autoNotesExplanation,  // Explicació
+                    text = strings.autoNotesExplanation,
                     fontSize = (20 * scale).sp,
                     lineHeight = (28 * scale).sp
                 )
@@ -372,19 +341,17 @@ fun GameScreen(
                         .fillMaxWidth()
                         .height((50 * scale).dp)
                 ) {
-                    Text(strings.understood, fontSize = (20 * scale).sp)  // "Entès"
+                    Text(strings.understood, fontSize = (20 * scale).sp)
                 }
             }
         )
     }
 
-    // Diàleg fites + victòria
     LaunchedEffect(pendingVictoryDialog) {
         if (pendingVictoryDialog) {
-            // 1️⃣ Comprovar achievements
             val updatedStats = StatisticsManager.loadStatistics(context)
             val newlyUnlocked = mutableListOf<Achievement>()
-            var unlockedSomething = false
+            // ✅ ESBORRAT: var unlockedSomething = false (mai s'usava)
 
             AchievementManager.checkAchievements(
                 context = context,
@@ -394,11 +361,11 @@ fun GameScreen(
                     newlyUnlocked.add(newAchievement)
                 }
             )
-            // Van sortint les fites
+
             if (newlyUnlocked.isNotEmpty()) {
                 unlockedQueue = newlyUnlocked
                 showingAchievement = unlockedQueue.first()
-            } else { // Quan s'acaben o no hi ha fites, diàleg felicitats
+            } else {
                 showVictoryDialog = true
                 pendingClearGame = true
                 pendingVictoryDialog = false
@@ -406,7 +373,6 @@ fun GameScreen(
         }
     }
 
-    // Diàleg fites
     if (showingAchievement != null) {
         AlertDialog(
             onDismissRequest = { /* forcem a clicar botó */ },
@@ -434,13 +400,11 @@ fun GameScreen(
             },
             confirmButton = {
                 Button(onClick = {
-                    // Treure el primer de la cua
                     unlockedQueue = unlockedQueue.drop(1)
 
                     if (unlockedQueue.isNotEmpty()) {
                         showingAchievement = unlockedQueue.first()
                     } else {
-                        // Ja no queden fites → ara felicitats
                         showingAchievement = null
                         showVictoryDialog = true
                         pendingClearGame = true
@@ -453,40 +417,27 @@ fun GameScreen(
         )
     }
 
-
-    // Funció per actualitzar el tauler i guardar a l'historial
     fun updateBoard(newBoard: List<List<SudokuCell>>) {
         moveHistory.add(boardState)
-        val cleanedBoard = cleanAutoNotes(newBoard)
-        boardState = cleanedBoard
+        boardState = cleanAutoNotes(newBoard)
+
+        // ✅ NOU: Incrementar moviments en Mode Zen
+        if (isZenMode) {
+            moveCount++
+        }
     }
 
-    // Comprovar si el tauler està complet i correcte
-    val isComplete = boardState.all { row -> row.all { it.value != 0 } }
-    val isCorrect = if (isComplete) {
-        boardState.mapIndexed { r, row ->
-            row.mapIndexed { c, cell ->
-                cell.value == solution[r][c]
-            }.all { it }
-        }.all { it }
-    } else {
-        false
-    }
-
-    // Time Attack: comprovar fi de temps
     LaunchedEffect(timeLimitSeconds, currentElapsedSeconds, showVictoryDialog) {
         if (timeLimitSeconds != null &&
             !showVictoryDialog &&
             currentElapsedSeconds >= timeLimitSeconds
         ) {
-            // Aquí podries mostrar un diàleg de derrota per temps, per ara només:
             isPaused = true
-            showTimeoutDialog = true  // o un altre estat específic si vols un diàleg diferent
+            showTimeoutDialog = true
             shouldSaveOnExit = false
         }
     }
 
-    // Detectar quan es completa el Sudoku
     LaunchedEffect(boardState) {
         val complete = boardState.all { row -> row.all { it.value != 0 } }
         if (complete && !showVictoryDialog) {
@@ -495,12 +446,52 @@ fun GameScreen(
             }.all { it.all { it } }
 
             if (correct) {
-                // ✅ Aturar quan es completa correctament
+                // ✅ CORRECTE: 0 errors
                 isPaused = true
-                StatisticsManager.recordCompletion(context, difficulty, mode, currentElapsedSeconds)
-                pendingVictoryDialog = true   // ⬅️ el mostrem després de possibles achievements
+
+                val hintsUsed = when (difficulty) {
+                    Difficulty.EASY -> 5 - hintsRemaining
+                    Difficulty.MEDIUM -> 3 - hintsRemaining
+                    Difficulty.HARD -> 1 - hintsRemaining
+                }
+
+                // No guardar estadístiques normals si és Daily
+                if (!isDaily) {
+                    StatisticsManager.recordCompletion(
+                        context,
+                        difficulty,
+                        mode,
+                        currentElapsedSeconds,
+                        hintsUsed = hintsUsed,
+                        errorsCount = 0, // sense errors
+                        isDaily = false,     //  AFEGIR
+                        isZenMode = isZenMode
+                    )
+                } else {
+                    // Guardar que has completat el Daily
+                    DailySudokuManager.markDailyAsPlayed(context, currentElapsedSeconds)
+                }
+                pendingVictoryDialog = true
             } else {
-                // ✅ Només mostrar el diàleg (el LaunchedEffect dins del diàleg pausarà el timer)
+                //  INCORRECTE: 1 error
+                val hintsUsed = when (difficulty) {
+                    Difficulty.EASY -> 5 - hintsRemaining
+                    Difficulty.MEDIUM -> 3 - hintsRemaining
+                    Difficulty.HARD -> 1 - hintsRemaining
+                }
+
+                if (!isDaily) {
+                    StatisticsManager.recordCompletion(
+                        context,
+                        difficulty,
+                        mode,
+                        currentElapsedSeconds,
+                        hintsUsed = hintsUsed,
+                        errorsCount = 1,  //  1 error (Sudoku incorrecte)
+                        isDaily = false,     //  AFEGIR
+                        isZenMode = isZenMode
+                    )
+                }
                 showErrorDialog = true
             }
         }
@@ -513,7 +504,6 @@ fun GameScreen(
                 .fillMaxSize()
                 .padding((16 * scale).dp)
         ) {
-            // COLUMNA ESQUERRA: Botó Back + Sudoku
             Column(
                 modifier = Modifier
                     .weight(1.5f)
@@ -522,24 +512,50 @@ fun GameScreen(
             ) {
                 Spacer(modifier = Modifier.height((46 * scale).dp))
 
-                // Botó Back a dalt a l'esquerra
-                Button(
-                    onClick = onBack,
+                Row(
                     modifier = Modifier
-                        .offset(x = (10 * scale).dp)
-                        .width((160 * scale).dp)
-                        .height((50 * scale).dp)
+                        .fillMaxWidth()
+                        .offset(x = (10 * scale).dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(strings.back, fontSize = (20 * scale).sp)
+                    // Esquerra: Tornar
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .width((160 * scale).dp)
+                            .height((50 * scale).dp)
+                    ) {
+                        Text(strings.back, fontSize = (20 * scale).sp)
+                    }
+
+                    // Centre: Títol Daily (o buit)
+                    if (isDaily) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = strings.dailySudokuTitle,
+                                fontSize = (28 * scale).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF9800)
+                            )
+                            Text(
+                                text = DailySudokuManager.getTodayFormatted(),
+                                fontSize = (18 * scale).sp,
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width((1).dp))  // Buit si no és daily
+                    }
+
+                    // Dreta: Spacer equilibrador (nou joc està a la columna dreta)
+                    Spacer(modifier = Modifier.width((160 * scale).dp))
                 }
 
-                Spacer(modifier = Modifier.height(0.dp))
+                Spacer(modifier = Modifier.height((8 * scale).dp))
 
-                // Nivell i Timer SOBRE el Sudoku
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                // Títol dificultat + Timer (sense el bloc isDaily que estava aquí)
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = when (difficulty) {
                             Difficulty.EASY -> strings.difficultyEasy
@@ -549,7 +565,7 @@ fun GameScreen(
                         modifier = Modifier.padding(bottom = 0.dp),
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = (24 * scale).sp)
                     )
-
+                    // Timer
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -558,10 +574,10 @@ fun GameScreen(
                         IconButton(
                             onClick = {
                                 if (isPaused) {
-                                    isPaused = false  // Reprendre
+                                    isPaused = false
                                 } else {
                                     isPaused = true
-                                    showPauseDialog = true  // ✅ Mostrar diàleg quan pauses
+                                    showPauseDialog = true
                                 }
                             },
                             modifier = Modifier.size((36 * scale).dp)
@@ -569,26 +585,25 @@ fun GameScreen(
                             Icon(
                                 imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                                 contentDescription = if (isPaused) "Reprendre" else "Pausar",
-                                modifier = Modifier
-                                    .size((24 * scale).dp)
-                                    .clickable {
-                                        if (isPaused) {
-                                            isPaused = false
-                                        } else {
-                                            isPaused = true
-                                            showPauseDialog = true  // ✅ Mostrar diàleg
-                                        }
-                                    }
+                                modifier = Modifier.size((24 * scale).dp)
                             )
                         }
 
-                        Text(text = displayTimerText, fontSize = (24 * scale).sp)
+                        //  MODIFICAT: condicional per Mode Zen
+                        if (isZenMode) {
+                            Text(
+                                text = "${strings.moves}: $moveCount",
+                                fontSize = (24 * scale).sp,
+                                color = Color(0xFF4CAF50)
+                            )
+                        } else {
+                            Text(text = displayTimerText, fontSize = (24 * scale).sp)
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(0.dp))
 
-                // Sudoku centrat
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -597,7 +612,6 @@ fun GameScreen(
                 ) {
                     SudokuBoard(
                         board = boardState,
-                        solution = solution,
                         selectedCell = selectedCell,
                         onCellClick = { row, col ->
                             if (!isPaused && !boardState[row][col].isFixed) {
@@ -609,19 +623,20 @@ fun GameScreen(
                                 }
                             }
                         },
-                        onCellLongClick = { row, col ->  // ✅ AFEGIR
+                        onCellLongClick = { row, col ->
                             if (!isPaused && notesMode == NotesMode.AUTO && !boardState[row][col].isFixed) {
                                 val validNotes = getValidNotesForCell(row, col)
-                                val newBoard = boardState.mapIndexed { r, rowList ->
-                                    rowList.mapIndexed { c, cell ->
-                                        if (r == row && c == col) {
-                                            cell.copy(notes = validNotes, value = 0)
-                                        } else {
-                                            cell
+                                updateBoard(
+                                    boardState.mapIndexed { r, rowList ->
+                                        rowList.mapIndexed { c, cell ->
+                                            if (r == row && c == col) {
+                                                cell.copy(notes = validNotes, value = 0)
+                                            } else {
+                                                cell
+                                            }
                                         }
                                     }
-                                }
-                                updateBoard(newBoard)
+                                )
                             }
                         }
                     )
@@ -630,7 +645,6 @@ fun GameScreen(
 
             Spacer(modifier = Modifier.width((16 * scale).dp))
 
-            // COLUMNA DRETA: Controls
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -640,22 +654,21 @@ fun GameScreen(
                 verticalArrangement = Arrangement.Top
             ) {
                 Spacer(modifier = Modifier.height((36 * scale).dp))
-
-                // Nou Joc
-                Button(
-                    onClick = {
-                        shouldSaveOnExit = false
-                        GameStateManager.clearGame(context, mode, difficulty)  // ← Passa difficulty
-                        resetTrigger++
-                    },
-                    modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
-                ) {
-                    Text(strings.newGame, fontSize = (20 * scale).sp)
+                if(!isDaily) {
+                    Button(
+                        onClick = {
+                            shouldSaveOnExit = false
+                            GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
+                            resetTrigger++
+                        },
+                        modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
+                    ) {
+                        Text(strings.newGame, fontSize = (20 * scale).sp)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height((6 * scale).dp))
 
-                // BOTÓ REINICIAR
                 Button(
                     onClick = {
                         if (!isPaused) {
@@ -663,7 +676,7 @@ fun GameScreen(
                             boardState = initialBoard.map { row -> row.map { cell -> cell.copy() } }
                             selectedCell = null
                             selectedNumber = null
-                            startTimeOffset = 0
+                            moveCount = 0  // Resetear també moviments
                             hintsRemaining = when (difficulty) {
                                 Difficulty.EASY -> 5
                                 Difficulty.MEDIUM -> 3
@@ -675,7 +688,6 @@ fun GameScreen(
                 ) {
                     Text(strings.reset, fontSize = (20 * scale).sp)
                 }
-
 
                 Spacer(modifier = Modifier.height((20 * scale).dp))
 
@@ -689,37 +701,37 @@ fun GameScreen(
                             for (colNum in 0 until 3) {
                                 val number = rowNum * 3 + colNum + 1
                                 Button(
-                                    onClick = {  // ✅ AQUÍ! Substituir tot el onClick
+                                    onClick = {
                                         if (!isPaused) {
                                             selectedCell?.let { (row, col) ->
                                                 if (!boardState[row][col].isFixed) {
                                                     selectedNumber = number
-                                                    val newBoard = boardState.mapIndexed { r, rowList ->
-                                                        rowList.mapIndexed { c, cell ->
-                                                            if (r == row && c == col) {
-                                                                when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
-                                                                    NotesMode.MANUAL -> {
-                                                                        val newNotes = if (cell.notes.contains(number)) {
-                                                                            cell.notes - number
-                                                                        } else {
-                                                                            cell.notes + number
+                                                    updateBoard(
+                                                        boardState.mapIndexed { r, rowList ->
+                                                            rowList.mapIndexed { c, cell ->
+                                                                if (r == row && c == col) {
+                                                                    when (notesMode) {
+                                                                        NotesMode.MANUAL -> {
+                                                                            val newNotes = if (cell.notes.contains(number)) {
+                                                                                cell.notes - number
+                                                                            } else {
+                                                                                cell.notes + number
+                                                                            }
+                                                                            cell.copy(notes = newNotes)
                                                                         }
-                                                                        cell.copy(notes = newNotes)
+                                                                        NotesMode.AUTO -> {
+                                                                            cell.copy(value = number, notes = emptySet())
+                                                                        }
+                                                                        NotesMode.OFF -> {
+                                                                            cell.copy(value = number, notes = emptySet())
+                                                                        }
                                                                     }
-                                                                    NotesMode.AUTO -> {
-                                                                        // En mode AUTO, posar número directament
-                                                                        cell.copy(value = number, notes = emptySet())
-                                                                    }
-                                                                    NotesMode.OFF -> {
-                                                                        cell.copy(value = number, notes = emptySet())
-                                                                    }
+                                                                } else {
+                                                                    cell
                                                                 }
-                                                            } else {
-                                                                cell
                                                             }
                                                         }
-                                                    }
-                                                    updateBoard(newBoard)
+                                                    )
                                                     selectedNumber = null
                                                 }
                                             }
@@ -739,7 +751,6 @@ fun GameScreen(
                                 }
                             }
                         }
-                        // Afegir espai entre files (excepte després de l'última)
                         if (rowNum < 2) {
                             Spacer(modifier = Modifier.height((8 * scale).dp))
                         }
@@ -748,8 +759,6 @@ fun GameScreen(
 
                 Spacer(modifier = Modifier.height((24 * scale).dp))
 
-                // 5 botons en columna
-                // BOTÓ LLAPIS MODE
                 Button(
                     onClick = {
                         if (!isPaused) {
@@ -774,14 +783,13 @@ fun GameScreen(
 
                 Spacer(modifier = Modifier.height((8 * scale).dp))
 
-                // BOTÓ NOTES amb 3 estats
                 Button(
                     onClick = {
                         if (!isPaused) {
                             notesMode = when (notesMode) {
                                 NotesMode.OFF -> NotesMode.MANUAL
                                 NotesMode.MANUAL -> {
-                                    showAutoNotesDialog = true  // Mostrar explicació
+                                    showAutoNotesDialog = true
                                     NotesMode.AUTO
                                 }
                                 NotesMode.AUTO -> NotesMode.OFF
@@ -806,13 +814,12 @@ fun GameScreen(
                     Text(
                         text = when (notesMode) {
                             NotesMode.OFF -> strings.notesOff
-                            NotesMode.MANUAL -> strings.notesManual  // ✅ AFEGIR a Strings
-                            NotesMode.AUTO -> strings.notesAuto  // ✅ AFEGIR a Strings
+                            NotesMode.MANUAL -> strings.notesManual
+                            NotesMode.AUTO -> strings.notesAuto
                         },
                         fontSize = (20 * scale).sp
                     )
                 }
-
 
                 Spacer(modifier = Modifier.height((8 * scale).dp))
 
@@ -821,16 +828,17 @@ fun GameScreen(
                         if (!isPaused) {
                             selectedCell?.let { (row, col) ->
                                 if (!boardState[row][col].isFixed) {
-                                    val newBoard = boardState.mapIndexed { r, rowList ->
-                                        rowList.mapIndexed { c, cell ->
-                                            if (r == row && c == col) {
-                                                cell.copy(value = 0, notes = emptySet())
-                                            } else {
-                                                cell
+                                    updateBoard(
+                                        boardState.mapIndexed { r, rowList ->
+                                            rowList.mapIndexed { c, cell ->
+                                                if (r == row && c == col) {
+                                                    cell.copy(value = 0, notes = emptySet())
+                                                } else {
+                                                    cell
+                                                }
                                             }
                                         }
-                                    }
-                                    updateBoard(newBoard)
+                                    )
                                 }
                             }
                         }
@@ -855,16 +863,17 @@ fun GameScreen(
                             }
                             if (emptyCells.isNotEmpty()) {
                                 val (r, c) = emptyCells.random()
-                                val newBoard = boardState.mapIndexed { row, rowList ->
-                                    rowList.mapIndexed { col, cell ->
-                                        if (row == r && col == c) {
-                                            cell.copy(value = solution[r][c], notes = emptySet())
-                                        } else {
-                                            cell
+                                updateBoard(
+                                    boardState.mapIndexed { row, rowList ->
+                                        rowList.mapIndexed { col, cell ->
+                                            if (row == r && col == c) {
+                                                cell.copy(value = solution[r][c], notes = emptySet())
+                                            } else {
+                                                cell
+                                            }
                                         }
                                     }
-                                }
-                                updateBoard(newBoard)
+                                )
                                 hintsRemaining--
                             }
                         }
@@ -918,54 +927,75 @@ fun GameScreen(
         ) {
             Spacer(modifier = Modifier.height((46 * scale).dp))
 
-            // FILA SUPERIOR: Botó tornar (esquerra) i Nou Joc (dreta)
+            // FILA 1: Tornar | Títol Daily | Nou Joc
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Esquerra: Tornar
                 Button(
                     onClick = onBack,
                     modifier = Modifier
                         .height((50 * scale).dp)
                         .width((160 * scale).dp),
-                    contentPadding = PaddingValues(0.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text(
-                        strings.back,
-                        fontSize = (24 * scale).sp
-                    )
+                    Text(strings.back, fontSize = (24 * scale).sp)
                 }
 
-                Button(
-                    onClick = {
-                        shouldSaveOnExit = false
-                        GameStateManager.clearGame(context, mode, difficulty)  // ← Passa difficulty
-                        resetTrigger++
-                    },
-                    modifier = Modifier
-                        .height((50 * scale).dp)
-                        .width((180 * scale).dp),
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text(
-                        strings.newGame,
-                        fontSize = (20 * scale).sp
-                    )
+                // Centre: Títol Daily
+                if (isDaily) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = strings.dailySudokuTitle,
+                            fontSize = (24 * scale).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF9800)
+                        )
+                        Text(
+                            text = DailySudokuManager.getTodayFormatted(),
+                            fontSize = (18 * scale).sp,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width((1).dp))
+                }
+
+                // Dreta: Nou Joc (o Spacer si és Daily)
+                if (!isDaily) {
+                    Button(
+                        onClick = {
+                            shouldSaveOnExit = false
+                            GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
+                            resetTrigger++
+                        },
+                        modifier = Modifier
+                            .height((50 * scale).dp)
+                            .width((180 * scale).dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(strings.newGame, fontSize = (20 * scale).sp)
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width((180 * scale).dp))
                 }
             }
 
             Spacer(modifier = Modifier.height((8 * scale).dp))
 
-            // FILA AMB NIVELL/TIMER CENTRAT I BOTÓ REINICIAR A LA DRETA
-            Row(modifier = Modifier.fillMaxWidth(),
+            // FILA 2: Nivell + Timer (esquerra) | Reiniciar (dreta)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.width((180 * scale).dp)) // Espai per equilibrar
+                // Esquerra: Spacer per equilibrar
+                Spacer(modifier = Modifier.width((160 * scale).dp))
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+                // Centre: Nivell + Timer
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = when (difficulty) {
                             Difficulty.EASY -> strings.difficultyEasy
@@ -973,17 +1003,11 @@ fun GameScreen(
                             Difficulty.HARD -> strings.difficultyHard
                         },
                         modifier = Modifier.padding(bottom = 0.dp),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = (24 * scale).sp
-                        )
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = (24 * scale).sp)
                     )
-
-                    Spacer(modifier = Modifier.height((0 * scale).dp))
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(top = 0.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
@@ -991,20 +1015,20 @@ fun GameScreen(
                             modifier = Modifier
                                 .size((24 * scale).dp)
                                 .clickable {
-                                    if (isPaused) {
-                                        isPaused = false
-                                    } else {
-                                        isPaused = true
-                                        showPauseDialog = true  // ✅ Mostrar diàleg
-                                    }
+                                    if (isPaused) isPaused = false
+                                    else { isPaused = true; showPauseDialog = true }
                                 }
                         )
                         Spacer(modifier = Modifier.width((8 * scale).dp))
-
-                        Text(text = displayTimerText, fontSize = (24 * scale).sp)
+                        if (isZenMode) {
+                            Text(text = "${strings.moves}: $moveCount", fontSize = (24 * scale).sp, color = Color(0xFF4CAF50))
+                        } else {
+                            Text(text = displayTimerText, fontSize = (24 * scale).sp)
+                        }
                     }
                 }
 
+                // Dreta: Reiniciar
                 Button(
                     onClick = {
                         if (!isPaused) {
@@ -1012,7 +1036,7 @@ fun GameScreen(
                             boardState = initialBoard.map { row -> row.map { cell -> cell.copy() } }
                             selectedCell = null
                             selectedNumber = null
-                            startTimeOffset = 0
+                            moveCount = 0
                             hintsRemaining = when (difficulty) {
                                 Difficulty.EASY -> 5
                                 Difficulty.MEDIUM -> 3
@@ -1023,18 +1047,17 @@ fun GameScreen(
                     modifier = Modifier
                         .height((50 * scale).dp)
                         .width((180 * scale).dp),
-                    contentPadding = PaddingValues(0.dp),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text(strings.reset,
-                        fontSize = (20 * scale).sp)
+                    Text(strings.reset, fontSize = (20 * scale).sp)
                 }
             }
 
             Spacer(modifier = Modifier.height((12 * scale).dp))
 
+            // FILA 3: Tauler
             SudokuBoard(
                 board = boardState,
-                solution = solution,
                 selectedCell = selectedCell,
                 onCellClick = { row, col ->
                     if (!isPaused && !boardState[row][col].isFixed) {
@@ -1046,26 +1069,20 @@ fun GameScreen(
                         }
                     }
                 },
-                onCellLongClick = { row, col ->  // ✅ AFEGIR
+                onCellLongClick = { row, col ->
                     if (!isPaused && notesMode == NotesMode.AUTO && !boardState[row][col].isFixed) {
                         val validNotes = getValidNotesForCell(row, col)
-                        val newBoard = boardState.mapIndexed { r, rowList ->
+                        updateBoard(boardState.mapIndexed { r, rowList ->
                             rowList.mapIndexed { c, cell ->
-                                if (r == row && c == col) {
-                                    cell.copy(notes = validNotes, value = 0)
-                                } else {
-                                    cell
-                                }
+                                if (r == row && c == col) cell.copy(notes = validNotes, value = 0) else cell
                             }
-                        }
-                        updateBoard(newBoard)
+                        })
                     }
                 }
             )
 
             Spacer(modifier = Modifier.height((10 * scale).dp))
 
-            // Només els números sense botó de notes
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1074,37 +1091,37 @@ fun GameScreen(
             ) {
                 for (number in 1..9) {
                     Button(
-                        onClick = {  // ✅ AQUÍ! Substituir tot el onClick
+                        onClick = {
                             if (!isPaused) {
                                 selectedCell?.let { (row, col) ->
                                     if (!boardState[row][col].isFixed) {
                                         selectedNumber = number
-                                        val newBoard = boardState.mapIndexed { r, rowList ->
-                                            rowList.mapIndexed { c, cell ->
-                                                if (r == row && c == col) {
-                                                    when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
-                                                        NotesMode.MANUAL -> {
-                                                            val newNotes = if (cell.notes.contains(number)) {
-                                                                cell.notes - number
-                                                            } else {
-                                                                cell.notes + number
+                                        updateBoard(
+                                            boardState.mapIndexed { r, rowList ->
+                                                rowList.mapIndexed { c, cell ->
+                                                    if (r == row && c == col) {
+                                                        when (notesMode) {
+                                                            NotesMode.MANUAL -> {
+                                                                val newNotes = if (cell.notes.contains(number)) {
+                                                                    cell.notes - number
+                                                                } else {
+                                                                    cell.notes + number
+                                                                }
+                                                                cell.copy(notes = newNotes)
                                                             }
-                                                            cell.copy(notes = newNotes)
+                                                            NotesMode.AUTO -> {
+                                                                cell.copy(value = number, notes = emptySet())
+                                                            }
+                                                            NotesMode.OFF -> {
+                                                                cell.copy(value = number, notes = emptySet())
+                                                            }
                                                         }
-                                                        NotesMode.AUTO -> {
-                                                            // En mode AUTO, posar número directament
-                                                            cell.copy(value = number, notes = emptySet())
-                                                        }
-                                                        NotesMode.OFF -> {
-                                                            cell.copy(value = number, notes = emptySet())
-                                                        }
+                                                    } else {
+                                                        cell
                                                     }
-                                                } else {
-                                                    cell
                                                 }
                                             }
-                                        }
-                                        updateBoard(newBoard)
+                                        )
                                         selectedNumber = null
                                     }
                                 }
@@ -1125,12 +1142,10 @@ fun GameScreen(
 
             Spacer(modifier = Modifier.height((12 * scale).dp))
 
-            // FILA DE 4 BOTONS: Notes, Esborrar, Pista, Desfer
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // BOTÓ LLAPIS (NOU)
                 Button(
                     onClick = {
                         if (!isPaused) {
@@ -1154,14 +1169,13 @@ fun GameScreen(
                     )
                 }
 
-                // BOTÓ NOTES amb 3 estats
                 Button(
                     onClick = {
                         if (!isPaused) {
                             notesMode = when (notesMode) {
                                 NotesMode.OFF -> NotesMode.MANUAL
                                 NotesMode.MANUAL -> {
-                                    showAutoNotesDialog = true  // Mostrar explicació
+                                    showAutoNotesDialog = true
                                     NotesMode.AUTO
                                 }
                                 NotesMode.AUTO -> NotesMode.OFF
@@ -1187,29 +1201,29 @@ fun GameScreen(
                     Text(
                         text = when (notesMode) {
                             NotesMode.OFF -> strings.notesOff
-                            NotesMode.MANUAL -> strings.notesManual  // ✅ AFEGIR a Strings
-                            NotesMode.AUTO -> strings.notesAuto  // ✅ AFEGIR a Strings
+                            NotesMode.MANUAL -> strings.notesManual
+                            NotesMode.AUTO -> strings.notesAuto
                         },
                         fontSize = (20 * scale).sp
                     )
                 }
 
-                // BOTÓ ESBORRAR
                 Button(
                     onClick = {
                         if (!isPaused) {
                             selectedCell?.let { (row, col) ->
                                 if (!boardState[row][col].isFixed) {
-                                    val newBoard = boardState.mapIndexed { r, rowList ->
-                                        rowList.mapIndexed { c, cell ->
-                                            if (r == row && c == col) {
-                                                cell.copy(value = 0, notes = emptySet())
-                                            } else {
-                                                cell
+                                    updateBoard(
+                                        boardState.mapIndexed { r, rowList ->
+                                            rowList.mapIndexed { c, cell ->
+                                                if (r == row && c == col) {
+                                                    cell.copy(value = 0, notes = emptySet())
+                                                } else {
+                                                    cell
+                                                }
                                             }
                                         }
-                                    }
-                                    updateBoard(newBoard)
+                                    )
                                 }
                             }
                         }
@@ -1228,7 +1242,6 @@ fun GameScreen(
                     Text(strings.erase, fontSize = (20 * scale).sp)
                 }
 
-                // BOTÓ PISTA
                 Button(
                     onClick = {
                         if (!isPaused && hintsRemaining > 0) {
@@ -1242,16 +1255,17 @@ fun GameScreen(
                             }
                             if (emptyCells.isNotEmpty()) {
                                 val (r, c) = emptyCells.random()
-                                val newBoard = boardState.mapIndexed { row, rowList ->
-                                    rowList.mapIndexed { col, cell ->
-                                        if (row == r && col == c) {
-                                            cell.copy(value = solution[r][c], notes = emptySet())
-                                        } else {
-                                            cell
+                                updateBoard(
+                                    boardState.mapIndexed { row, rowList ->
+                                        rowList.mapIndexed { col, cell ->
+                                            if (row == r && col == c) {
+                                                cell.copy(value = solution[r][c], notes = emptySet())
+                                            } else {
+                                                cell
+                                            }
                                         }
                                     }
-                                }
-                                updateBoard(newBoard)
+                                )
                                 hintsRemaining--
                             }
                         }
@@ -1273,7 +1287,6 @@ fun GameScreen(
                     Text("${strings.hint} ($hintsRemaining)", fontSize = (20 * scale).sp)
                 }
 
-                // BOTÓ DESFER
                 Button(
                     onClick = {
                         if (!isPaused && moveHistory.isNotEmpty()) {
@@ -1300,7 +1313,7 @@ fun GameScreen(
         }
     }
 
-    // Diàleg de canvas de dibuix
+    // Diàleg canvas dibuix
     if (showDrawingCanvas) {
         AlertDialog(
             onDismissRequest = { showDrawingCanvas = false },
@@ -1308,34 +1321,31 @@ fun GameScreen(
             text = {
                 DrawingCanvas(
                     onDigitRecognized = { digit ->
-                        // Col·locar el dígit reconegut a la cella seleccionada
                         selectedCell?.let { (row, col) ->
                             if (!boardState[row][col].isFixed && digit in 1..9) {
-                                val newBoard = boardState.mapIndexed { r, rowList ->
-                                    rowList.mapIndexed { c, cell ->
-                                        if (r == row && c == col) {
-                                            // ✅ CANVIAR AQUESTA PART:
-                                            when (notesMode) {  // ✅ Canviar de isNotesMode a notesMode
-                                                NotesMode.MANUAL -> {
-                                                    // Mode notes: afegir/treure nota
-                                                    val newNotes = if (cell.notes.contains(digit)) {
-                                                        cell.notes - digit
-                                                    } else {
-                                                        cell.notes + digit
+                                updateBoard(
+                                    boardState.mapIndexed { r, rowList ->
+                                        rowList.mapIndexed { c, cell ->
+                                            if (r == row && c == col) {
+                                                when (notesMode) {
+                                                    NotesMode.MANUAL -> {
+                                                        val newNotes = if (cell.notes.contains(digit)) {
+                                                            cell.notes - digit
+                                                        } else {
+                                                            cell.notes + digit
+                                                        }
+                                                        cell.copy(notes = newNotes)
                                                     }
-                                                    cell.copy(notes = newNotes)
+                                                    NotesMode.AUTO, NotesMode.OFF -> {
+                                                        cell.copy(value = digit, notes = emptySet())
+                                                    }
                                                 }
-                                                NotesMode.AUTO, NotesMode.OFF -> {
-                                                    // Mode normal: posar número
-                                                    cell.copy(value = digit, notes = emptySet())
-                                                }
+                                            } else {
+                                                cell
                                             }
-                                        } else {
-                                            cell
                                         }
                                     }
-                                }
-                                updateBoard(newBoard)
+                                )
                                 showDrawingCanvas = false
                             }
                         }
@@ -1343,17 +1353,17 @@ fun GameScreen(
                     onDismiss = { showDrawingCanvas = false }
                 )
             },
-            confirmButton = { }
+            confirmButton = {}
         )
     }
 
-    // Diàleg de Pause
-    if (showPauseDialog && isPaused) {
+    // Diàleg de pausa
+    if (showPauseDialog) {  // ✅ ESBORRAT && isPaused (sempre és true aquí)
         AlertDialog(
-            onDismissRequest = { /* No permetre tancar sense reprendre */ },
+            onDismissRequest = { },
             title = {
                 Text(
-                    text = strings.gamePaused,  // ✅ Afegir a Strings.kt
+                    text = strings.gamePaused,
                     fontSize = (32 * scale).sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
@@ -1361,7 +1371,7 @@ fun GameScreen(
             },
             text = {
                 Text(
-                    text = strings.gamePausedMessage,  // ✅ "Prem reprendre per continuar jugant"
+                    text = strings.gamePausedMessage,
                     fontSize = (24 * scale).sp,
                     textAlign = TextAlign.Center
                 )
@@ -1376,64 +1386,7 @@ fun GameScreen(
                         .fillMaxWidth()
                         .height((50 * scale).dp)
                 ) {
-                    Text(strings.resume, fontSize = (20 * scale).sp)  // ✅ "Reprendre"
-                }
-            },
-            dismissButton = null
-        )
-    }
-
-    // Diàleg de victòria
-    if (showVictoryDialog) {
-        AlertDialog(
-            onDismissRequest = { showVictoryDialog = false },
-            title = {
-                Text(
-                    text = strings.congratulations,
-                    fontSize = (32 * scale).sp,
-                    lineHeight = (40 * scale).sp
-                )
-            },
-            text = {
-                Text(
-                    text = "${strings.completed}\n\n${strings.time} $displayTimerText",
-                    fontSize = (24 * scale).sp,
-                    lineHeight = (32 * scale).sp,
-                    textAlign = TextAlign.Center
-                )
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
-                ) {
-                    // Botó NOU SUDOKU
-                    Button(
-                        onClick = {
-                            showVictoryDialog = false
-                            shouldSaveOnExit = false
-                            GameStateManager.clearGame(context, mode, difficulty)
-                            resetTrigger++
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((50 * scale).dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(strings.newGame, fontSize = (18 * scale).sp)
-                    }
-
-                    // Botó TORNAR AL MENÚ
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((50 * scale).dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(strings.backToMenu, fontSize = (18 * scale).sp)
-                    }
+                    Text(strings.resume, fontSize = (20 * scale).sp)
                 }
             },
             dismissButton = null
@@ -1442,7 +1395,6 @@ fun GameScreen(
 
     // Diàleg d'error
     if (showErrorDialog) {
-        // ✅ Guardar el temps actual i pausar
         LaunchedEffect(Unit) {
             pausedAtSeconds = currentElapsedSeconds
             isPaused = true
@@ -1451,7 +1403,6 @@ fun GameScreen(
         AlertDialog(
             onDismissRequest = {
                 showErrorDialog = false
-                // ✅ Actualitzar l'offset al temps pausat abans de reprendre
                 startTimeOffset = pausedAtSeconds
                 isPaused = false
             },
@@ -1474,7 +1425,6 @@ fun GameScreen(
                 Button(
                     onClick = {
                         showErrorDialog = false
-                        // ✅ Actualitzar l'offset al temps pausat abans de reprendre
                         startTimeOffset = pausedAtSeconds
                         isPaused = false
                     },
@@ -1491,12 +1441,11 @@ fun GameScreen(
         AlertDialog(
             onDismissRequest = {
                 showTimeoutDialog = false
-                // Opcionalment pots reprendre el timer si vols
-                // isPaused = false
+                isPaused = false
             },
             title = {
                 Text(
-                    text = "⏱️ ${strings.timeUp}", // Afegeix "timeUp" a Strings.kt
+                    text = strings.timeUp,
                     fontSize = (32 * scale).sp,
                     lineHeight = (40 * scale).sp,
                     color = Color.Red
@@ -1504,7 +1453,7 @@ fun GameScreen(
             },
             text = {
                 Text(
-                    text = strings.timeUpMessage, // Afegeix missatge a Strings.kt
+                    text = strings.timeUpMessage,
                     fontSize = (24 * scale).sp,
                     lineHeight = (32 * scale).sp
                 )
@@ -1514,25 +1463,25 @@ fun GameScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
                 ) {
-                    // Botó NOU SUDOKU
-                    Button(
-                        onClick = {
-                            showTimeoutDialog = false
-                            shouldSaveOnExit = false
-                            GameStateManager.clearGame(context, mode, difficulty)
-                            resetTrigger++
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((50 * scale).dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(strings.newGame, fontSize = (18 * scale).sp)
+                    if(!isDaily) {
+                        Button(
+                            onClick = {
+                                showTimeoutDialog = false
+                                shouldSaveOnExit = false
+                                GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
+                                resetTrigger++
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height((50 * scale).dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(strings.newGame, fontSize = (18 * scale).sp)
+                        }
                     }
 
-                    // Botó TORNAR AL MENÚ
                     Button(
-                        onClick = { onBack() },
+                        onClick = onBack,
                         modifier = Modifier
                             .weight(1f)
                             .height((50 * scale).dp),
@@ -1545,15 +1494,96 @@ fun GameScreen(
             dismissButton = null
         )
     }
+
+    // Diàleg de victòria
+    if (showVictoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showVictoryDialog = false },
+            title = {
+                Text(
+                    text = strings.congratulations,
+                    fontSize = (32 * scale).sp,
+                    lineHeight = (40 * scale).sp
+                )
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (isZenMode) {
+                        Text(
+                            text = "${strings.completed}\n\n${strings.moves}: $moveCount",
+                            fontSize = (24 * scale).sp,
+                            lineHeight = (32 * scale).sp,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        Text(
+                            text = "${strings.completed}\n\n${strings.time}: $displayTimerText",
+                            fontSize = (24 * scale).sp,
+                            lineHeight = (32 * scale).sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        // Info Daily
+                        if (isDaily) {
+                            Spacer(modifier = Modifier.height((16 * scale).dp))
+                            Text(
+                                text = "🔥 ${strings.currentStreak}: ${DailySudokuManager.getCurrentStreak(context)} ${strings.days}",
+                                fontSize = (20 * scale).sp,
+                                color = Color(0xFFFF9800),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+                ) {
+                    if(!isDaily) {
+                        Button(
+                            onClick = {
+                                showVictoryDialog = false
+                                shouldSaveOnExit = false
+                                GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
+                                resetTrigger++
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height((50 * scale).dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(strings.newGame, fontSize = (18 * scale).sp)
+                        }
+                    }
+
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height((50 * scale).dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(strings.backToMenu, fontSize = (18 * scale).sp)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
     // Diàleg de continuar partida guardada
     if (showResumeDialog) {
         AlertDialog(
-            onDismissRequest = {
-                // No permetre tancar sense decidir
-            },
+            onDismissRequest = { },
             title = {
                 Text(
-                    text = "${strings.resumeGame}", // Afegeix a Strings.kt
+                    text = strings.resumeGame,
                     fontSize = (32 * scale).sp,
                     lineHeight = (40 * scale).sp
                 )
@@ -1561,11 +1591,13 @@ fun GameScreen(
             text = {
                 Column {
                     Text(
-                        text = strings.resumeGameMessage, // Afegeix a Strings.kt
+                        text = strings.resumeGameMessage,
                         fontSize = (24 * scale).sp,
                         lineHeight = (32 * scale).sp
                     )
+
                     Spacer(modifier = Modifier.height((16 * scale).dp))
+
                     Text(
                         text = "${strings.time}: $displayTimerText",
                         fontSize = (20 * scale).sp,
@@ -1578,37 +1610,36 @@ fun GameScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
                 ) {
-                    // Botó CONTINUAR
                     Button(
                         onClick = {
                             showResumeDialog = false
-                            isPaused = false // ✅ Començar a comptar
+                            isPaused = false
                         },
                         modifier = Modifier
                             .weight(1f)
                             .height((50 * scale).dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(strings.continue_, fontSize = (18 * scale).sp) // Afegeix a Strings.kt
+                        Text(strings.continue_, fontSize = (18 * scale).sp)
                     }
-
-                    // Botó NOU JOC
-                    Button(
-                        onClick = {
-                            showResumeDialog = false
-                            shouldSaveOnExit = false
-                            GameStateManager.clearGame(context, mode, difficulty)
-                            resetTrigger++
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((50 * scale).dp),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
-                        )
-                    ) {
-                        Text(strings.newGame, fontSize = (18 * scale).sp)
+                    if (!isDaily) {
+                        Button(
+                            onClick = {
+                                showResumeDialog = false
+                                shouldSaveOnExit = false
+                                GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
+                                resetTrigger++
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height((50 * scale).dp),
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text(strings.newGame, fontSize = (18 * scale).sp)
+                        }
                     }
                 }
             },
@@ -1616,23 +1647,20 @@ fun GameScreen(
         )
     }
 }
+
 @Composable
 fun SudokuBoard(
     board: List<List<SudokuCell>>,
-    solution: List<List<Int>>,
+    // ✅ ESBORRAT: solution (no s'usava)
     selectedCell: Pair<Int, Int>?,
     onCellClick: (Int, Int) -> Unit,
-    onCellLongClick: ((Int, Int) -> Unit)? = null  // ✅ AFEGIR
+    onCellLongClick: ((Int, Int) -> Unit)? = null
 ) {
     val scale = AdaptiveSizes.getScaleFactor()
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
-
-    // Calcular mida real de cada cel·la
-    val cellSize = (screenWidthDp - 32) / 9  // Restar padding i dividir per 9
-    val noteScale = (cellSize / 40f).coerceIn(0.2f, 2.2f)  // Escala específica per notes
-
-    // Padding adaptatiu
+    val cellSize = (screenWidthDp - 32) / 9
+    val noteScale = (cellSize / 40f).coerceIn(0.2f, 2.2f)
     val notePadding = when {
         screenWidthDp < 360 -> (2 * scale).dp
         screenWidthDp < 600 -> (2 * scale).dp
@@ -1650,21 +1678,22 @@ fun SudokuBoard(
                     val cell = board[row][col]
                     val isSelected = selectedCell == Pair(row, col)
 
-                    // Determinar el color del text
                     val textColor = when {
-                        cell.isFixed -> Color(0xFF263238) // Números inicials
-                        cell.value == 0 -> Color.Black  // Cel·la buida
-                        else -> Color(0xFF2196F3)  // Tots els números de l'usuari en blau
+                        cell.isFixed -> Color(0xFF263238)
+                        cell.value == 0 -> Color.Black
+                        else -> Color.DarkGray //(0xFF2196F3)
                     }
 
                     val topBorder = when {
                         row == 3 || row == 6 -> (2 * scale).dp
                         else -> (0.5 * scale).dp
                     }
+
                     val leftBorder = when {
                         col == 3 || col == 6 -> (2 * scale).dp
                         else -> (0.5 * scale).dp
                     }
+
                     val bottomBorder = if (row == 8) 0.dp else (0.5 * scale).dp
                     val rightBorder = if (col == 8) 0.dp else (0.5 * scale).dp
 
@@ -1674,9 +1703,9 @@ fun SudokuBoard(
                             .fillMaxHeight()
                             .background(
                                 when {
-                                    isSelected -> Color(0xFFFFE082)     // Seleccionada: groc pastel
-                                    cell.isFixed -> Color(0xFFE0E0E0)   // Fixa: gris mitjà
-                                    else -> Color.White                 // Editable: blanc
+                                    isSelected -> Color(0xFFFFCCBC)
+                                    cell.isFixed -> Color.LightGray
+                                    else -> Color.White
                                 }
                             )
                             .combinedClickable(
@@ -1725,7 +1754,6 @@ fun SudokuBoard(
                         contentAlignment = Alignment.Center
                     ) {
                         if (cell.value != 0) {
-                            // Mostrar número principal
                             Text(
                                 text = cell.value.toString(),
                                 fontSize = (30 * scale).sp,
@@ -1733,11 +1761,10 @@ fun SudokuBoard(
                                 fontWeight = if (cell.isFixed) FontWeight.Bold else FontWeight.Normal
                             )
                         } else if (cell.notes.isNotEmpty()) {
-                            // Mostrar notes en una graella 3x3
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(notePadding),  // ← Padding ajustat a mida
+                                    .padding(notePadding),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(
@@ -1750,7 +1777,7 @@ fun SudokuBoard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .weight(1f),
-                                            horizontalArrangement = Arrangement.SpaceEvenly,  // ← SIN espais entre columnes
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             for (colNotes in 0 until 3) {
@@ -1760,17 +1787,15 @@ fun SudokuBoard(
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Text(
-                                                        text = if (cell.notes.contains(
-                                                                noteNumber
-                                                            )
-                                                        ) {
-                                                            noteNumber.toString()  // ← Mostra el número
+                                                        text = if (cell.notes.contains(noteNumber)) {
+                                                            noteNumber.toString()
                                                         } else {
-                                                            ""  // ← Espai buit però manté la posició
+                                                            ""
                                                         },
                                                         fontSize = (10 * noteScale).sp,
-                                                        color = Color.Gray,
+                                                        color = Color.DarkGray,
                                                         textAlign = TextAlign.Center,
+                                                        fontWeight = FontWeight.Bold,
                                                         lineHeight = (8 * noteScale).sp
                                                     )
                                                 }
@@ -1786,6 +1811,7 @@ fun SudokuBoard(
         }
     }
 }
+
 @Composable
 fun rememberTimer(
     resetTrigger: Int = 0,
@@ -1794,13 +1820,11 @@ fun rememberTimer(
     resetTimer: Int = 0,
     onTimeUpdate: (Int) -> Unit
 ): String {
-    var elapsedTime by remember(resetTrigger, resetTimer) { mutableStateOf(startOffset) }
-    // ✅ Guardar el temps quan es pausa
-    var timeWhenPaused by remember(resetTrigger) { mutableStateOf(startOffset) }
+    var elapsedTime by remember(resetTrigger, resetTimer) { mutableIntStateOf(startOffset) }
+    var timeWhenPaused by remember(resetTrigger) { mutableIntStateOf(startOffset) }
 
-    LaunchedEffect(resetTrigger, isPaused, resetTimer, startOffset) { // ← Afegir startOffset com a key
+    LaunchedEffect(resetTrigger, isPaused, resetTimer, startOffset) {
         if (!isPaused) {
-            // ✅ Començar des del startOffset actualitzat
             val startTime = System.currentTimeMillis() - (startOffset * 1000L)
             while (true) {
                 kotlinx.coroutines.delay(1000)
@@ -1808,10 +1832,11 @@ fun rememberTimer(
                     elapsedTime = ((System.currentTimeMillis() - startTime) / 1000).toInt()
                     timeWhenPaused = elapsedTime
                     onTimeUpdate(elapsedTime)
+                } else {
+                    elapsedTime = timeWhenPaused
                 }
             }
         } else {
-            // ✅ Quan està pausat, mantenir el temps guardat
             elapsedTime = timeWhenPaused
         }
     }
@@ -1820,7 +1845,3 @@ fun rememberTimer(
     val seconds = elapsedTime % 60
     return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }
-
-
-
-

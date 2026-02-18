@@ -50,11 +50,14 @@ interface Strings {
     val statistics: String
     val createdBy: String
     val settings: String
+    val zenMode: String
+    val zenModeDescription: String
 
     // Game
     val back: String
     val newGame: String
     val reset: String
+    val moves: String
     val pencil: String
     val pencilOn: String
     val pencilOff: String
@@ -74,6 +77,16 @@ interface Strings {
     val recognize: String
     val cancel: String
 
+    //Sudoku Diari
+    val dailySudoku: String
+    val dailySudokuTitle: String
+    val alreadyPlayedToday: String
+    val comeBackTomorrow: String
+    val currentStreak: String
+    val days: String
+    val dailyBestTime: String
+    val todayDifficulty: String
+    
     // Dialogs
     val resumeGame: String
     val resumeGameMessage: String
@@ -151,6 +164,13 @@ interface Strings {
 
     val achievementNoErrors: String
     val achievementNoErrorsDesc: String
+
+    val achievementDailyStreak7: String
+    val achievementDailyStreak7Desc: String
+    val achievementDailyPerfect: String
+    val achievementDailyPerfectDesc: String
+    val achievementZenMaster: String
+    val achievementZenMasterDesc: String
 }
 
 object StringsCa : Strings {
@@ -163,10 +183,13 @@ object StringsCa : Strings {
     override val statistics = "📊 Estadístiques"
     override val settings = "⚙️ Configuració"
     override val createdBy = "Creada per ktacrack"
+    override val zenMode = "Mode Zen"
+    override val zenModeDescription = "Sense cronòmetre"
 
     override val back = "← Tornar"
     override val newGame = "🔄 Nou Joc"
     override val reset = "Reiniciar Sudoku"
+    override val moves = "Moviments"
     override val pencil = "Llapis"
     override val pencilOn = "Llapis ON"
     override val pencilOff = "Llapis OFF"
@@ -198,6 +221,15 @@ object StringsCa : Strings {
     override val timeUp = "⏰ Temps esgotat!"
     override val timeUpMessage = "No has pogut completar el sudoku a temps."
 
+    override val dailySudoku = "Sudoku Diari"
+    override val dailySudokuTitle = "Sudoku del dia"
+    override val todayDifficulty = "Avui"
+    override val alreadyPlayedToday = "Ja has jugat el Sudoku d'avui!"
+    override val comeBackTomorrow = "Torna demà per un nou repte"
+    override val currentStreak = "Ratxa actual"
+    override val days = "dies"
+    override val dailyBestTime = "Millor temps d'avui"
+    
     override val gamePaused = "Joc en pausa"
     override val gamePausedMessage = "Prem reprendre per continuar jugant"
     override val resume = "Reprendre"
@@ -254,6 +286,15 @@ object StringsCa : Strings {
 
     override val achievementNoErrors = "Perfeccionista"
     override val achievementNoErrorsDesc = "Completa 10 sudokus sense errors"
+
+    override val achievementDailyStreak7 = "Ratxa Diària"
+    override val achievementDailyStreak7Desc = "7 dies consecutius de Sudoku Diari"
+
+    override val achievementDailyPerfect = "Diari Perfecte"
+    override val achievementDailyPerfectDesc = "3 Sudoku Diaris sense errors ni pistes"
+
+    override val achievementZenMaster = "Màster Zen"
+    override val achievementZenMasterDesc = "50 sudokus Zen completats"
 }
 
 object StringsEs : Strings {
@@ -266,10 +307,13 @@ object StringsEs : Strings {
     override val statistics = "📊 Estadísticas"
     override val settings = "⚙️ Configuración"
     override val createdBy = "Creada por ktacrack"
+    override val zenMode = "Modo Zen"
+    override val zenModeDescription = "Sin cronómetro"
 
     override val back = "← Volver"
     override val newGame = "🔄 Nuevo Juego"
     override val reset = "Reiniciar Sudoku"
+    override val moves = "Movimientos"
     override val pencil = "Lápiz"
     override val pencilOn = "Lápiz ON"
     override val pencilOff = "Lápiz OFF"
@@ -302,6 +346,15 @@ object StringsEs : Strings {
     override val timeUp = "⏰ ¡Tiempo agotado!"
     override val timeUpMessage = "No has podido completar el sudoku a tiempo."
 
+    override val dailySudoku = "Sudoku Diario"
+    override val dailySudokuTitle = "Sudoku del día"
+    override val todayDifficulty = "Hoy"
+    override val alreadyPlayedToday = "¡Ya has jugado el Sudoku de hoy!"
+    override val comeBackTomorrow = "Vuelve mañana para un nuevo reto"
+    override val currentStreak = "Racha actual"
+    override val days = "días"
+    override val dailyBestTime = "Mejor tiempo de hoy"
+    
     override val gamePaused = "Juego en pausa"
     override val gamePausedMessage = "Pulsa reanudar para continuar jugando"
     override val resume = "Reanudar"
@@ -358,6 +411,16 @@ object StringsEs : Strings {
 
     override val achievementNoErrors = "Perfeccionista"
     override val achievementNoErrorsDesc = "Completa 10 sudokus sin errores"
+
+    override val achievementDailyStreak7 = "Racha Diaria"
+    override val achievementDailyStreak7Desc = "7 días consecutivos de Sudoku Diario"
+
+    override val achievementDailyPerfect = "Diario Perfecto"
+    override val achievementDailyPerfectDesc = "3 Sudokus Diarios sin errores ni pistas"
+
+    override val achievementZenMaster = "Maestro Zen"
+    override val achievementZenMasterDesc = "50 sudokus Zen completados"
+
 }
 
 object StringsEn : Strings {
@@ -370,10 +433,13 @@ object StringsEn : Strings {
     override val statistics = "📊 Statistics"
     override val settings = "⚙️ Settings"
     override val createdBy = "Created by ktacrack"
+    override val zenMode = "Zen Mode"
+    override val zenModeDescription = "No timer"
 
     override val back = "← Back"
     override val newGame = "🔄 New Game"
     override val reset = "Reset Sudoku"
+    override val moves = "Movements"
     override val pencil = "Pencil"
     override val pencilOn = "Pencil ON"
     override val pencilOff = "Pencil OFF"
@@ -406,6 +472,15 @@ object StringsEn : Strings {
     override val timeUp = "⏰ Time's up!"
     override val timeUpMessage = "You couldn't complete the sudoku in time."
 
+    override val dailySudoku = "Daily Sudoku"
+    override val dailySudokuTitle = "Today's Sudoku"
+    override val todayDifficulty = "Today"
+    override val alreadyPlayedToday = "You've already played today's Sudoku!"
+    override val comeBackTomorrow = "Come back tomorrow for a new challenge"
+    override val currentStreak = "Current streak"
+    override val days = "days"
+    override val dailyBestTime = "Today's best time"
+    
     override val gamePaused = "Game Paused"
     override val gamePausedMessage = "Press resume to continue playing"
     override val resume = "Resume"
@@ -462,4 +537,13 @@ object StringsEn : Strings {
 
     override val achievementNoErrors = "Perfectionist"
     override val achievementNoErrorsDesc = "Complete 10 sudokus without errors"
+
+    override val achievementDailyStreak7 = "Daily Streak"
+    override val achievementDailyStreak7Desc = "7 consecutive days of Daily Sudoku"
+
+    override val achievementDailyPerfect = "Perfect Daily"
+    override val achievementDailyPerfectDesc = "3 Daily Sudokus with no errors or hints"
+
+    override val achievementZenMaster = "Zen Master"
+    override val achievementZenMasterDesc = "Complete 50 Zen Sudokus"
 }

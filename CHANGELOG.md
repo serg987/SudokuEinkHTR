@@ -7,165 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-02-18
+
+### Added
+- **Zen Mode** - Timer-free gameplay for relaxed solving
+    - Independent saved games for Normal vs Zen modes
+    - Tracks moves instead of time
+    - Toggle available only in Normal game mode
+    - Zen Master achievement (50 Zen sudokus completed)
+- **New Achievements** - 3 additional challenges
+    - **Daily Streak** - 7 consecutive days of Daily Sudoku
+    - **Perfect Daily** - 3 Daily Sudokus with no errors or hints
+    - **Zen Master** - Complete 50 Zen sudokus
+- **Daily Sudoku** - Rotating daily difficulty system
+    - One unique puzzle per day with progressive difficulty
+    - Tracks daily best time and current streak
+    - Prevents replaying the same daily puzzle
+
+### Fixed
+- **Achievement calculation accuracy** - Fixed stats tracking for no-hints/no-errors achievements
+- **Independent game states** - Zen/Normal modes now have separate saved games
+- **Reset button timer bug** - Fixed timer reset to zero on game reset
+- **Cell contrast improvements** - Better visual distinction between fixed/user cells and notes
+
+### Improved
+- **Statistics tracking** - Enhanced precision for achievement progress
+- **Game state management** - Unique keys for all mode combinations (Normal/Zen/Daily)
+- **UI contrast** - Improved readability on e-ink displays
+
+### Technical
+- **Android Gradle Plugin updated** to 9.0.1
+- Version code: 5 → 6
+- Version name: 1.4.0 → 1.5.0
+- `GameStateManager` now supports `isZenMode` parameter
+- `StatisticsManager.recordCompletion()` now tracks `isDaily` and `isZenMode`
+- New achievement strings for all languages (CA/ES/EN)
+- Enhanced `MainScreen` with Zen Mode toggle component
+
+---
+
 ## [1.4.0] - 2026-02-13
 
 ### Added
 - **Smart Auto Notes Mode** - Intelligent note management system
-    - Three modes: OFF, Manual, and Auto
-    - Long press any cell to auto-fill all valid notes
-    - Automatic cleanup of incompatible notes as you fill the board
-    - One-time tutorial dialog explaining Auto Notes functionality
-- **Achievement System** - Track your progress with 10 unlockable achievements
-    - First win, milestone completions (10/50/100 games)
-    - Speed achievements (complete Easy under 3min, Hard under 10min)
-    - Difficulty mastery (25 Hard games)
-    - Attack Mode survivor
-    - No hints challenge (5 games without hints)
-    - Perfect games (10 games without errors)
-- **Pause Dialog** - Proper game pause overlay
-    - Blocks all game interactions when paused
-    - Centered pause dialog preventing accidental clicks
-    - Separate layouts for portrait and landscape modes
-
-### Improved
-- Statistics tracking now supports achievement system
-- Enhanced game state management for tracking hints and errors
-- Better note management with conflict detection
-- UI consistency across all game modes
-
-### Fixed
-- Notes not updating when placing numbers in Auto mode
-- Timer continuing during pause state
-- Game allowing moves while paused
-
-### Technical
-- Version code: 4 → 5
-- Version name: 1.3 → 1.4.0
-- New `Achievement.kt` and `AchievementManager.kt` for achievement system
-- New `AchievementScreen.kt` for viewing unlocked achievements
-- Enhanced `NotesMode` enum (OFF, MANUAL, AUTO)
-- New `cleanAutoNotes()` function for smart note cleanup
-- New `getValidNotesForCell()` function for note calculation
-- Achievement data persistence with SharedPreferences
-
----
-
-## [1.3] - 2026-02-10
-
-### Added
-- **New Game Mode: Attack Mode** - Complete sudokus against the clock
-    - Easy: 20 minutes time limit
-    - Medium: 30 minutes time limit
-    - Hard: 45 minutes time limit
-- Improved navigation system with difficulty submenu per game mode
-- Resume saved game dialog on game entry with paused timer
-- Multiple independent saved games (one per mode + difficulty combination)
-- Timeout dialog for Attack Mode when time runs out
-- Statistics now show best remaining time for Attack Mode
-
-### Fixed
-- Timer continuing after game completion
-- Timer jumping backwards on orientation changes
-- Timer not pausing during error dialog
-- Same sudoku appearing in Normal and Attack modes
-- Double arrow (←) in back button
-
-### Changed
-- Game state management now differentiates between game modes
-- Statistics display adapted for Attack Mode (remaining time vs. elapsed time)
-- Improved timer synchronization across all game states
-
-### Technical
-- Version code: 3 → 4
-- Version name: 1.2.0 → 1.3.0
-- Enhanced `GameStateManager` with mode parameter
-- Improved `rememberTimer` function with better pause handling
-- New `hasSavedGame()` function for checking saved games
-- Added `showResumeDialog` state for saved game prompts
-
----
-
-## [1.2.0] - 2026-02-10
-
-### Added
-- Completely random Sudoku generation algorithm from scratch
-- Infinite puzzle variety with access to 10^16+ different puzzles
-- Random backtracking solver for solution generation
-
-### Changed
-- Replaced fixed-base generation with fully randomized approach
-- Each puzzle now completely unique and unrelated to previous ones
-- Improved puzzle diversity across all difficulty levels
-
-### Technical
-- Version code: 2 → 3
-- Version name: 1.1.0 → 1.2.0
-- New functions: `generateRandomSolution()`, `fillBoardRandomly()`, `isValidPlacement()`
-- Removed fixed solution base dependency
-
----
-
-## [1.1.0] - 2026-02-09
-
-### Fixed
-- Puzzles with multiple solutions issue
-- Puzzle quality improvements
-
-### Added
-- All Sudoku puzzles now have exactly one unique solution
-
-### Improved
-- Enhanced puzzle generation algorithm
-- Better difficulty consistency
-
----
-
-## [1.1] - 2026-02-08
-
-### Fixed
-- Reset button now works correctly after loading a saved game
-- Original initial board is now properly stored separately from saved game state
-
-### Added
-- Timer controls: pause, play, and restart buttons
-- Global pencil mode for quick handwriting recognition
-- Independent saved games for each difficulty level
-- Auto-save functionality when exiting games
-- Automatic game recovery when returning to a difficulty
-
-### Improved
-- Adaptive scaled drawing canvas for all screen sizes
-- Better visual differentiation between fixed numbers (bold + black) and user numbers (light + gray)
-- Enhanced UI scaling system for phones and tablets
-- Adaptive layouts: vertical for phones, horizontal for tablets
-- Cell background colors for better contrast
-
-### Changed
-- Darker background for fixed number cells (improved visibility on e-ink displays)
-- Updated translations for all languages (CA/ES/EN)
-- Updated dependencies (Material Icons Extended)
-- Improved save system architecture
-
-### Technical
-- New `AdaptiveSizes.kt` for intelligent screen scaling
-- Enhanced `GameState.kt` with per-difficulty save management
-- Improved timer implementation with pause/resume functionality
-
----
-
-## [1.0.0] - 2026-02-07
-
-### Added
-- Initial release
-- 3 difficulty levels (Easy, Medium, Hard)
-- Smart Sudoku generator with optimized algorithms
-- Handwriting digit recognition with TensorFlow Lite
-- Built-in timer
-- Detailed statistics tracking (completed games, best times)
-- Notes mode for marking possible numbers
-- Hint system (5/3/1 hints per difficulty)
-- Undo functionality with unlimited history
-- E-ink optimized interface with high contrast
-- Multi-language support (Catalan, Spanish, English)
-- Persistent game state saving
-- Reset game functionality
+  [... resto del changelog anterior sin cambios]

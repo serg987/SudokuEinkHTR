@@ -11,14 +11,18 @@ sealed class Screen(val route: String) {
     object Menu : Screen("menu/{mode}") {
         fun createRoute(mode: String = "none") = "menu/$mode"
     }
-
-    object Game : Screen("game/{mode}/{difficulty}") {
-        fun createRoute(mode: GameMode, difficulty: Difficulty) =
-            "game/${mode.name}/${difficulty.name}"
+    object Game : Screen("game/{mode}/{difficulty}/{isZenMode}") {
+        fun createRoute(mode: GameMode, difficulty: Difficulty, isZenMode: Boolean = false) =
+            "game/${mode.name}/${difficulty.name}/$isZenMode"
     }
-
+    object DailyMenu : Screen("daily_menu")  // Submenu dificultats
+    object DailyGame : Screen("daily_game/{difficulty}") {
+        fun createRoute(difficulty: Difficulty) = "daily_game/${difficulty.name}"
+    }
     object Statistics : Screen("statistics")
+
 }
+
 
 @Composable
 fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
@@ -43,26 +47,35 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
             MainScreen(
                 currentMode = if (currentMode != "none") currentMode else null,
                 onModeSelected = { mode ->
-                    // Navegar al submenu del mode seleccionat
                     navController.navigate(Screen.Menu.createRoute(mode))
                 },
-                onGameModeSelected = { mode, difficulty ->
-                    // Navegar directament al joc
-                    navController.navigate(Screen.Game.createRoute(mode, difficulty))
+                onGameModeSelected = { mode, difficulty, isZenMode ->
+                    navController.navigate(Screen.Game.createRoute(mode, difficulty, isZenMode))
+                },
+                onDailySudokuClick = {  // ← AFEGIT AQUÍ DINS
+                    navController.navigate(Screen.DailyGame.route)
                 },
                 onStatisticsClick = {
                     navController.navigate(Screen.Statistics.route)
                 },
                 onAchievementsClick = { navController.navigate("achievements") },
                 onBackToMainMenu = {
-                    // Tornar al menú principal (des del submenu)
                     navController.navigate(Screen.Menu.createRoute("none")) {
                         popUpTo(Screen.Menu.route) { inclusive = true }
                     }
                 },
                 onThemeChange = onThemeChange
             )
-
+        }
+        // Daily Sudoku
+        composable(Screen.DailyGame.route) {
+            DailyGameScreen(
+                onBack = {
+                    navController.navigate(Screen.Menu.createRoute("none")) {
+                        popUpTo(Screen.Menu.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         // Pantalla de joc
@@ -70,7 +83,11 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
             route = Screen.Game.route,
             arguments = listOf(
                 navArgument("mode") { type = NavType.StringType },
-                navArgument("difficulty") { type = NavType.StringType }
+                navArgument("difficulty") { type = NavType.StringType },
+                navArgument("isZenMode") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
             )
         ) { backStackEntry ->
             val modeName = backStackEntry.arguments?.getString("mode")
@@ -83,11 +100,13 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
             val difficultyName = backStackEntry.arguments?.getString("difficulty")
             val difficulty = Difficulty.valueOf(difficultyName ?: "EASY")
 
+            val isZenMode = backStackEntry.arguments?.getBoolean("isZenMode") ?: false
+
             GameScreen(
                 difficulty = difficulty,
                 mode = mode,
+                isZenMode = isZenMode,
                 onBack = {
-                    // ✅ Tornar al submenu del mateix mode
                     navController.navigate(Screen.Menu.createRoute(modeName ?: "NORMAL")) {
                         popUpTo(Screen.Menu.route) { inclusive = true }
                     }
@@ -99,13 +118,13 @@ fun AppNavigation(onThemeChange: (Boolean) -> Unit = {}) {
         composable(Screen.Statistics.route) {
             StatisticsScreen(
                 onBack = {
-                    // ✅ Tornar al menú principal
                     navController.navigate(Screen.Menu.createRoute("none")) {
                         popUpTo(Screen.Menu.route) { inclusive = true }
                     }
                 }
             )
         }
+
         // Pantalla Achievements
         composable("achievements") {
             AchievementsScreen(
