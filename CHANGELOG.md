@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Placing a number now automatically deselects the cell
   to prevent accidentally placing a second number
   (except in manual notes mode, where the cell remains selected)
+- Fixed pause button resetting the game timer when toggling
 
 ### Improved
 - Visual spacing adjustment between the "Daily Sudoku" title and the date
