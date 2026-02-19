@@ -178,7 +178,7 @@ fun AchievementCard(achievement: Achievement, scale: Float, strings: Strings) {
                         )
                     }
 
-                    // ✅ Text sempre visible per fites de temps
+                    //  Text sempre visible per fites de temps
                     val displayText = if (achievement.isTimeBasedReverse) {
                         val currentTime = if (achievement.currentValue >= 999) "--:--"
                         else StatisticsManager.formatTime(achievement.currentValue)

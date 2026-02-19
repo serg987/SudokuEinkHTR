@@ -123,4 +123,35 @@ object DailySudokuManager {
             Difficulty.HARD -> strings.difficultyHard
         }
     }
+
+    // NOU: Sincronitzar Daily amb StatisticsManager per Achievements
+    fun recordDailyCompletion(context: Context) {
+        // 1. Actualitzar streak (ja existeix)
+        updateStreak(context)
+
+        // 2. Sincronitzar amb GameStatistics
+        val stats = StatisticsManager.loadStatistics(context)
+        val currentStreak = getCurrentStreak(context)
+
+        val newStats = stats.copy(
+            dailyStreak = currentStreak,                    // ← Streak per Daily Streak achievement
+            gamesCompletedZen = if (isTodayZenMode(context)) stats.gamesCompletedZen + 1 else stats.gamesCompletedZen  // ← Zen
+        )
+
+        StatisticsManager.saveStatistics(context, newStats)
+    }
+
+    // Helper per saber si avui és Zen Mode
+    private fun isTodayZenMode(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean("zen_mode_today_${LocalDate.now().toString()}", false)
+    }
+
+    // Marcar el dia com a Zen Mode (cridar des de GameScreen)
+    fun markTodayAsZenMode(context: Context, isZen: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("zen_mode_today_${LocalDate.now().toString()}", isZen)
+            .apply()
+    }
 }

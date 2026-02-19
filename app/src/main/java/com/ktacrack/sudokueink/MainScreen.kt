@@ -213,7 +213,7 @@ fun MainScreen(
                         Text("📅 ${strings.dailySudoku}", fontSize = (34 * scale).sp)
                         Text(
                             text = "${strings.todayDifficulty}: ${DailySudokuManager.getDailyDifficultyName(strings)}",
-                            fontSize = (20 * scale).sp,
+                            fontSize = (24 * scale).sp,
                             color = Color.White.copy(alpha = 0.85f)
                         )
                     }
@@ -226,7 +226,7 @@ fun MainScreen(
                             title = {
                                 Text(
                                     text = strings.alreadyPlayedToday,
-                                    fontSize = 26.sp,
+                                    fontSize = (32 * scale).sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             },
@@ -234,20 +234,33 @@ fun MainScreen(
                                 Column {
                                     Text(
                                         text = "${strings.dailyBestTime}: ${formatTime(DailySudokuManager.getDailyBestTime(context))}",
-                                        fontSize = 24.sp
+                                        fontSize = (26 * scale).sp
                                     )
                                     Spacer(modifier = Modifier.height((8 * scale).dp))
                                     Text(
                                         text = "🔥 ${strings.currentStreak}: ${DailySudokuManager.getCurrentStreak(context)} ${strings.days}",
-                                        fontSize = 24.sp,
+                                        fontSize = (24 * scale).sp,
                                         color = Color(0xFFFF9800),
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = (30 * scale).sp
                                     )
                                 }
                             },
                             confirmButton = {
-                                Button(onClick = { showAlreadyPlayedDialog = false }) {
-                                    Text(strings.back, fontSize = 18.sp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy((4 * scale).dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            showAlreadyPlayedDialog = false
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .wrapContentHeight(),
+                                    ) {
+                                        Text(strings.back, fontSize = (20 * scale).sp)
+                                    }
                                 }
                             }
                         )
@@ -408,8 +421,8 @@ fun ZenModeToggle(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth(0.8f)
-            .height((80 * scale).dp),
+            .fillMaxWidth(0.75f)
+            .height((100 * scale).dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isZenMode)
                 Color(0xFFE8F5E9)  // Verd suau quan actiu
@@ -425,10 +438,10 @@ fun ZenModeToggle(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    start = (16 * scale).dp,    // Esquerra
-                    end = (32 * scale).dp,      // Dreta
-                    top = (4 * scale).dp,       // Dalt (reduït)
-                    bottom = (4 * scale).dp     // Baix (reduït)horizontal = (32 * scale).dp,
+                    start = (20 * scale).dp,    // Esquerra
+                    end = (26 * scale).dp,      // Dreta
+                    top = (8 * scale).dp,       // Dalt (reduït)
+                    bottom = (8 * scale).dp     // Baix (reduït)
                 ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -442,7 +455,7 @@ fun ZenModeToggle(
                 )
                 Text(
                     text = strings.zenModeDescription,
-                    fontSize = (20 * scale).sp,
+                    fontSize = (24 * scale).sp,
                     color = if (isZenMode) Color(0xFF388E3C) else Color.Gray
                 )
             }

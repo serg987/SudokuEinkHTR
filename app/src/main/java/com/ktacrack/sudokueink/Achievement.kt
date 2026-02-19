@@ -12,7 +12,7 @@ data class Achievement(
     val currentValue: Int = 0,
     val isUnlocked: Boolean = false,
     val unlockedDate: Long? = null,
-    val isTimeBasedReverse: Boolean = false
+    val isTimeBasedReverse: Boolean = false,
 ) {
     val progress: Float get() = (currentValue.toFloat() / targetValue).coerceIn(0f, 1f)
 }

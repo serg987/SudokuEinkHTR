@@ -29,7 +29,7 @@ data class GameStatistics(
 
     val dailyStreak: Int = 0,
     val dailyGamesPerfectNoHintsNoErrors: Int = 0,
-    val gamesCompletedZen: Int = 0
+    val gamesCompletedZen: Int = 0,
 ){
     val totalGamesCompleted: Int
         get() = gamesCompletedEasyNormal + gamesCompletedMediumNormal +
@@ -84,93 +84,100 @@ object StatisticsManager {
     ) {
         val stats = loadStatistics(context)
 
-        val newStats = when (mode) {
-            GameMode.NORMAL -> when (difficulty) {
-                Difficulty.EASY -> stats.copy(
-                    gamesCompletedEasyNormal = stats.gamesCompletedEasyNormal + 1,
-                    bestTimeEasyNormal = minOf(
-                        stats.bestTimeEasyNormal ?: Int.MAX_VALUE,
-                        timeInSeconds
-                    ).takeIf { it != Int.MAX_VALUE },
-                    //  AFEGIR:
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors,
-                    gamesCompletedZen = if (isZenMode) stats.gamesCompletedZen + 1 else stats.gamesCompletedZen
-                )
-                Difficulty.MEDIUM -> stats.copy(
-                    gamesCompletedMediumNormal = stats.gamesCompletedMediumNormal + 1,
-                    bestTimeMediumNormal = minOf(
-                        stats.bestTimeMediumNormal ?: Int.MAX_VALUE,
-                        timeInSeconds
-                    ).takeIf { it != Int.MAX_VALUE },
-                    // ✅ AFEGIR:
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors,
-                    gamesCompletedZen = if (isZenMode) stats.gamesCompletedZen + 1 else stats.gamesCompletedZen
-                )
-                Difficulty.HARD -> stats.copy(
-                    gamesCompletedHardNormal = stats.gamesCompletedHardNormal + 1,
-                    bestTimeHardNormal = minOf(
-                        stats.bestTimeHardNormal ?: Int.MAX_VALUE,
-                        timeInSeconds
-                    ).takeIf { it != Int.MAX_VALUE },
-                    // ✅ AFEGIR:
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors,
-                    gamesCompletedZen = if (isZenMode) stats.gamesCompletedZen + 1 else stats.gamesCompletedZen
-                )
+        // 🔥 PAS 1: NOMÉS NORMAL/ATTACK (NO Daily/Zen) → Fites generals
+        val normalStats = if (!isDaily && !isZenMode) {
+            when (mode) {
+                GameMode.NORMAL -> when (difficulty) {
+                    Difficulty.EASY -> stats.copy(
+                        gamesCompletedEasyNormal = stats.gamesCompletedEasyNormal + 1,
+                        bestTimeEasyNormal = minOf(
+                            stats.bestTimeEasyNormal ?: Int.MAX_VALUE,
+                            timeInSeconds
+                        ).takeIf { it != Int.MAX_VALUE },
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                    Difficulty.MEDIUM -> stats.copy(
+                        gamesCompletedMediumNormal = stats.gamesCompletedMediumNormal + 1,
+                        bestTimeMediumNormal = minOf(
+                            stats.bestTimeMediumNormal ?: Int.MAX_VALUE,
+                            timeInSeconds
+                        ).takeIf { it != Int.MAX_VALUE },
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                    Difficulty.HARD -> stats.copy(
+                        gamesCompletedHardNormal = stats.gamesCompletedHardNormal + 1,
+                        bestTimeHardNormal = minOf(
+                            stats.bestTimeHardNormal ?: Int.MAX_VALUE,
+                            timeInSeconds
+                        ).takeIf { it != Int.MAX_VALUE },
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                }
+                GameMode.ATTACK -> when (difficulty) {
+                    Difficulty.EASY -> stats.copy(
+                        gamesCompletedEasyAttack = stats.gamesCompletedEasyAttack + 1,
+                        bestTimeEasyAttack = maxOf(
+                            stats.bestTimeEasyAttack ?: 0,
+                            getRemainingTime(Difficulty.EASY, timeInSeconds)
+                        ),
+                        gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                    Difficulty.MEDIUM -> stats.copy(
+                        gamesCompletedMediumAttack = stats.gamesCompletedMediumAttack + 1,
+                        bestTimeMediumAttack = maxOf(
+                            stats.bestTimeMediumAttack ?: 0,
+                            getRemainingTime(Difficulty.MEDIUM, timeInSeconds)
+                        ),
+                        gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                    Difficulty.HARD -> stats.copy(
+                        gamesCompletedHardAttack = stats.gamesCompletedHardAttack + 1,
+                        bestTimeHardAttack = maxOf(
+                            stats.bestTimeHardAttack ?: 0,
+                            getRemainingTime(Difficulty.HARD, timeInSeconds)
+                        ),
+                        gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
+                        gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
+                        gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
+                    )
+                }
             }
-            GameMode.ATTACK -> when (difficulty) {
-                Difficulty.EASY -> stats.copy(
-                    gamesCompletedEasyAttack = stats.gamesCompletedEasyAttack + 1,
-                    bestTimeEasyAttack = maxOf(
-                        stats.bestTimeEasyAttack ?: 0,
-                        getRemainingTime(Difficulty.EASY, timeInSeconds)
-                    ),
-                    // ✅ AFEGIR:
-                    gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
-                )
-                Difficulty.MEDIUM -> stats.copy(
-                    gamesCompletedMediumAttack = stats.gamesCompletedMediumAttack + 1,
-                    bestTimeMediumAttack = maxOf(
-                        stats.bestTimeMediumAttack ?: 0,
-                        getRemainingTime(Difficulty.MEDIUM, timeInSeconds)
-                    ),
-                    // ✅ AFEGIR:
-                    gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
-                )
-                Difficulty.HARD -> stats.copy(
-                    gamesCompletedHardAttack = stats.gamesCompletedHardAttack + 1,
-                    bestTimeHardAttack = maxOf(
-                        stats.bestTimeHardAttack ?: 0,
-                        getRemainingTime(Difficulty.HARD, timeInSeconds)
-                    ),
-                    // ✅ AFEGIR:
-                    gamesCompletedUnder10Seconds = if (timeInSeconds < 10) stats.gamesCompletedUnder10Seconds + 1 else stats.gamesCompletedUnder10Seconds,
-                    gamesCompletedNoHints = if (hintsUsed == 0) stats.gamesCompletedNoHints + 1 else stats.gamesCompletedNoHints,
-                    gamesCompletedNoErrors = if (errorsCount == 0) stats.gamesCompletedNoErrors + 1 else stats.gamesCompletedNoErrors
-                )
-            }
+        } else {
+            // No tocar res si és Daily o Zen
+            stats
         }
 
-        //  ESPECIAL PER DAILY:
-        val finalStats = if (isDaily && errorsCount == 0 && hintsUsed == 0) {
-            newStats.copy(
-                dailyGamesPerfectNoHintsNoErrors = newStats.dailyGamesPerfectNoHintsNoErrors + 1
+        // 🔥 PAS 2: NOMÉS ZEN → gamesCompletedZen
+        val zenStats = if (isZenMode && !isDaily) {
+            normalStats.copy(
+                gamesCompletedZen = normalStats.gamesCompletedZen + 1
             )
         } else {
-            newStats
+            normalStats
         }
 
-        //  Actualitzar ratxa diària:
-        finalStats.copy(
-            dailyStreak = DailySudokuManager.getCurrentStreak(context)
-        ).also { saveStatistics(context, it) }
+        // 🔥 PAS 3: NOMÉS DAILY → dailyStreak + dailyPerfect
+        val finalStats = if (isDaily) {
+            zenStats.copy(
+                dailyStreak = DailySudokuManager.getCurrentStreak(context),
+                dailyGamesPerfectNoHintsNoErrors = if (hintsUsed == 0 && errorsCount == 0)
+                    zenStats.dailyGamesPerfectNoHintsNoErrors + 1
+                else zenStats.dailyGamesPerfectNoHintsNoErrors
+            )
+        } else {
+            zenStats
+        }
+
+        saveStatistics(context, finalStats)
     }
+
 
     fun formatTime(seconds: Int): String {
         val minutes = seconds / 60

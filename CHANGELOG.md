@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-02-19
+
+### Fixed
+- Zen Mode: the continue game dialog now shows the moves made
+  instead of the elapsed time (Zen mode has no timer)
+- Placing a number now automatically deselects the cell
+  to prevent accidentally placing a second number
+  (except in manual notes mode, where the cell remains selected)
+
+### Improved
+- Visual spacing adjustment between the "Daily Sudoku" title and the date
+- Visual spacing adjustment between the difficulty label and the timer
+- Improved achievement detection and tracking logic
+
+---
+
 ## [1.5.0] - 2026-02-18
 
 ### Added

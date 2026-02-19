@@ -12,7 +12,8 @@ data class SavedGameState(
     val board: List<List<SavedCell>>,
     val solution: List<List<Int>>,
     val elapsedSeconds: Int,
-    val hintsRemaining: Int
+    val hintsRemaining: Int,
+    val moveCount: Int = 0
 )
 
 @Serializable

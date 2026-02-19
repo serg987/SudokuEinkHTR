@@ -119,9 +119,10 @@ fun GameScreen(
         )
     }
 
+    var hadErrorsDuringGame by remember { mutableStateOf(false) }
     var selectedCell by remember(resetTrigger) { mutableStateOf<Pair<Int, Int>?>(null) }
     var selectedNumber by remember(resetTrigger) { mutableStateOf<Int?>(null) }
-    var moveCount by remember(resetTrigger) { mutableIntStateOf(0) }  // ✅ NOU
+    var moveCount by remember(resetTrigger) { mutableIntStateOf(savedGame?.moveCount ?: 0) }
     var showVictoryDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showErrorDialog by remember(resetTrigger) { mutableStateOf(false) }
     var showTimeoutDialog by remember(resetTrigger) { mutableStateOf(false) }
@@ -137,7 +138,7 @@ fun GameScreen(
 
     var startTimeOffset by remember(resetTrigger) { mutableIntStateOf(savedGame?.elapsedSeconds ?: 0) }
     var currentElapsedSeconds by remember(resetTrigger) { mutableIntStateOf(startTimeOffset) }
-    var pausedAtSeconds by remember(resetTrigger) { mutableIntStateOf(0) }
+    var pausedAtSeconds by remember(resetTrigger) { mutableIntStateOf(startTimeOffset) }
 
     val timeLimitSeconds = remember(mode, difficulty) {
         if (mode == GameMode.ATTACK) {
@@ -211,7 +212,8 @@ fun GameScreen(
                 },
                 solution = solution,
                 elapsedSeconds = currentElapsedSeconds,
-                hintsRemaining = hintsRemaining
+                hintsRemaining = hintsRemaining,
+                moveCount = moveCount
             )
             GameStateManager.saveGame(context, savedState, isDaily, isZenMode)
         }
@@ -234,7 +236,8 @@ fun GameScreen(
                     },
                     solution = solution,
                     elapsedSeconds = currentElapsedSeconds,
-                    hintsRemaining = hintsRemaining
+                    hintsRemaining = hintsRemaining,
+                    moveCount = moveCount
                 )
                 GameStateManager.saveGame(context, savedState, isDaily, isZenMode)
             }
@@ -323,15 +326,15 @@ fun GameScreen(
             title = {
                 Text(
                     text = strings.autoNotesTitle,
-                    fontSize = (28 * scale).sp,
+                    fontSize = (30 * scale).sp,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
                     text = strings.autoNotesExplanation,
-                    fontSize = (20 * scale).sp,
-                    lineHeight = (28 * scale).sp
+                    fontSize = (26 * scale).sp,
+                    lineHeight = (30 * scale).sp
                 )
             },
             confirmButton = {
@@ -339,9 +342,9 @@ fun GameScreen(
                     onClick = { showAutoNotesDialog = false },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((50 * scale).dp)
+                        .wrapContentHeight()
                 ) {
-                    Text(strings.understood, fontSize = (20 * scale).sp)
+                    Text(strings.understood, fontSize = (24 * scale).sp)
                 }
             }
         )
@@ -446,7 +449,6 @@ fun GameScreen(
             }.all { it.all { it } }
 
             if (correct) {
-                // ✅ CORRECTE: 0 errors
                 isPaused = true
 
                 val hintsUsed = when (difficulty) {
@@ -455,43 +457,30 @@ fun GameScreen(
                     Difficulty.HARD -> 1 - hintsRemaining
                 }
 
-                // No guardar estadístiques normals si és Daily
                 if (!isDaily) {
                     StatisticsManager.recordCompletion(
-                        context,
-                        difficulty,
-                        mode,
-                        currentElapsedSeconds,
+                        context, difficulty, mode, currentElapsedSeconds,
                         hintsUsed = hintsUsed,
-                        errorsCount = 0, // sense errors
-                        isDaily = false,     //  AFEGIR
+                        errorsCount = if (hadErrorsDuringGame) 1 else 0,
+                        isDaily = false,
                         isZenMode = isZenMode
                     )
                 } else {
-                    // Guardar que has completat el Daily
                     DailySudokuManager.markDailyAsPlayed(context, currentElapsedSeconds)
-                }
-                pendingVictoryDialog = true
-            } else {
-                //  INCORRECTE: 1 error
-                val hintsUsed = when (difficulty) {
-                    Difficulty.EASY -> 5 - hintsRemaining
-                    Difficulty.MEDIUM -> 3 - hintsRemaining
-                    Difficulty.HARD -> 1 - hintsRemaining
-                }
-
-                if (!isDaily) {
+                    DailySudokuManager.recordDailyCompletion(context)
+                    DailySudokuManager.markTodayAsZenMode(context, isZenMode)
                     StatisticsManager.recordCompletion(
-                        context,
-                        difficulty,
-                        mode,
-                        currentElapsedSeconds,
+                        context, difficulty, mode, currentElapsedSeconds,
                         hintsUsed = hintsUsed,
-                        errorsCount = 1,  //  1 error (Sudoku incorrecte)
-                        isDaily = false,     //  AFEGIR
+                        errorsCount = if (hadErrorsDuringGame) 1 else 0,
+                        isDaily = true,
                         isZenMode = isZenMode
                     )
                 }
+                pendingVictoryDialog = true
+
+            } else {
+                hadErrorsDuringGame = true
                 showErrorDialog = true
             }
         }
@@ -574,9 +563,11 @@ fun GameScreen(
                         IconButton(
                             onClick = {
                                 if (isPaused) {
+                                    startTimeOffset = pausedAtSeconds
                                     isPaused = false
                                 } else {
                                     isPaused = true
+                                    pausedAtSeconds = currentElapsedSeconds
                                     showPauseDialog = true
                                 }
                             },
@@ -660,6 +651,7 @@ fun GameScreen(
                             shouldSaveOnExit = false
                             GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
                             resetTrigger++
+                            hadErrorsDuringGame = false
                         },
                         modifier = Modifier.fillMaxWidth().height((50 * scale).dp)
                     ) {
@@ -677,6 +669,7 @@ fun GameScreen(
                             selectedCell = null
                             selectedNumber = null
                             moveCount = 0  // Resetear també moviments
+                            hadErrorsDuringGame = false
                             hintsRemaining = when (difficulty) {
                                 Difficulty.EASY -> 5
                                 Difficulty.MEDIUM -> 3
@@ -732,6 +725,9 @@ fun GameScreen(
                                                             }
                                                         }
                                                     )
+                                                    if (notesMode != NotesMode.MANUAL) {
+                                                        selectedCell = null
+                                                    }
                                                     selectedNumber = null
                                                 }
                                             }
@@ -925,7 +921,7 @@ fun GameScreen(
                 .padding((16 * scale).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height((46 * scale).dp))
+            Spacer(modifier = Modifier.height((42 * scale).dp))
 
             // FILA 1: Tornar | Títol Daily | Nou Joc
             Row(
@@ -946,7 +942,10 @@ fun GameScreen(
 
                 // Centre: Títol Daily
                 if (isDaily) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy((0 * scale).dp)
+                    ) {
                         Text(
                             text = strings.dailySudokuTitle,
                             fontSize = (24 * scale).sp,
@@ -955,8 +954,9 @@ fun GameScreen(
                         )
                         Text(
                             text = DailySudokuManager.getTodayFormatted(),
-                            fontSize = (18 * scale).sp,
-                            color = Color.Gray
+                            fontSize = (20 * scale).sp,
+                            lineHeight = (16 * scale).sp,
+                            color = Color.DarkGray
                         )
                     }
                 } else {
@@ -970,6 +970,7 @@ fun GameScreen(
                             shouldSaveOnExit = false
                             GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
                             resetTrigger++
+                            hadErrorsDuringGame = false
                         },
                         modifier = Modifier
                             .height((50 * scale).dp)
@@ -989,13 +990,19 @@ fun GameScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 // Esquerra: Spacer per equilibrar
-                Spacer(modifier = Modifier.width((160 * scale).dp))
+                Spacer(
+                    modifier = Modifier
+                        .width((160 * scale).dp)
+                )
 
                 // Centre: Nivell + Timer
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.align(Alignment.Top)
+                ) {
                     Text(
                         text = when (difficulty) {
                             Difficulty.EASY -> strings.difficultyEasy
@@ -1003,8 +1010,11 @@ fun GameScreen(
                             Difficulty.HARD -> strings.difficultyHard
                         },
                         modifier = Modifier.padding(bottom = 0.dp),
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = (24 * scale).sp)
-                    )
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = (24 * scale).sp,
+                            lineHeight = (18 * scale).sp
+                        )
+                        )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
@@ -1015,13 +1025,22 @@ fun GameScreen(
                             modifier = Modifier
                                 .size((24 * scale).dp)
                                 .clickable {
-                                    if (isPaused) isPaused = false
-                                    else { isPaused = true; showPauseDialog = true }
+                                    if (isPaused) {
+                                        startTimeOffset = pausedAtSeconds
+                                        isPaused = false
+                                    } else {
+                                        isPaused = true
+                                        pausedAtSeconds = currentElapsedSeconds
+                                        showPauseDialog = true
+                                    }
                                 }
                         )
                         Spacer(modifier = Modifier.width((8 * scale).dp))
                         if (isZenMode) {
-                            Text(text = "${strings.moves}: $moveCount", fontSize = (24 * scale).sp, color = Color(0xFF4CAF50))
+                            Text(
+                                text = "${strings.moves}: $moveCount",
+                                fontSize = (24 * scale).sp,
+                                color = Color(0xFF4CAF50))
                         } else {
                             Text(text = displayTimerText, fontSize = (24 * scale).sp)
                         }
@@ -1037,6 +1056,7 @@ fun GameScreen(
                             selectedCell = null
                             selectedNumber = null
                             moveCount = 0
+                            hadErrorsDuringGame = false
                             hintsRemaining = when (difficulty) {
                                 Difficulty.EASY -> 5
                                 Difficulty.MEDIUM -> 3
@@ -1083,6 +1103,7 @@ fun GameScreen(
 
             Spacer(modifier = Modifier.height((10 * scale).dp))
 
+            // Fila de números
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1122,6 +1143,9 @@ fun GameScreen(
                                                 }
                                             }
                                         )
+                                        if (notesMode != NotesMode.MANUAL) {
+                                            selectedCell = null
+                                        }
                                         selectedNumber = null
                                     }
                                 }
@@ -1372,21 +1396,22 @@ fun GameScreen(
             text = {
                 Text(
                     text = strings.gamePausedMessage,
-                    fontSize = (24 * scale).sp,
+                    fontSize = (26 * scale).sp,
                     textAlign = TextAlign.Center
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
+                        startTimeOffset = pausedAtSeconds
                         isPaused = false
                         showPauseDialog = false
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((50 * scale).dp)
+                        .wrapContentHeight()
                 ) {
-                    Text(strings.resume, fontSize = (20 * scale).sp)
+                    Text(strings.resume, fontSize = (24 * scale).sp)
                 }
             },
             dismissButton = null
@@ -1470,6 +1495,7 @@ fun GameScreen(
                                 shouldSaveOnExit = false
                                 GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
                                 resetTrigger++
+                                hadErrorsDuringGame = false
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -1520,7 +1546,7 @@ fun GameScreen(
                         )
                     } else {
                         Text(
-                            text = "${strings.completed}\n\n${strings.time}: $displayTimerText",
+                            text = "${strings.completed}\n\n${strings.time} $displayTimerText",
                             fontSize = (24 * scale).sp,
                             lineHeight = (32 * scale).sp,
                             textAlign = TextAlign.Center
@@ -1552,6 +1578,7 @@ fun GameScreen(
                                 shouldSaveOnExit = false
                                 GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
                                 resetTrigger++
+                                hadErrorsDuringGame = false
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -1592,15 +1619,19 @@ fun GameScreen(
                 Column {
                     Text(
                         text = strings.resumeGameMessage,
-                        fontSize = (24 * scale).sp,
-                        lineHeight = (32 * scale).sp
+                        fontSize = (26 * scale).sp,
+                        lineHeight = (30 * scale).sp
                     )
 
                     Spacer(modifier = Modifier.height((16 * scale).dp))
 
                     Text(
-                        text = "${strings.time}: $displayTimerText",
-                        fontSize = (20 * scale).sp,
+                        text = if (isZenMode) {
+                            "${strings.moves}: ${savedGame!!.moveCount}"
+                        } else {
+                            formatTime(savedGame!!.elapsedSeconds)
+                        },
+                        fontSize = (22 * scale).sp,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -1608,19 +1639,20 @@ fun GameScreen(
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy((8 * scale).dp)
+                    horizontalArrangement = Arrangement.spacedBy((4 * scale).dp)
                 ) {
                     Button(
                         onClick = {
+                            startTimeOffset = pausedAtSeconds
                             showResumeDialog = false
                             isPaused = false
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height((50 * scale).dp),
+                            .wrapContentHeight(),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(strings.continue_, fontSize = (18 * scale).sp)
+                        Text(strings.continue_, fontSize = (20 * scale).sp)
                     }
                     if (!isDaily) {
                         Button(
@@ -1629,16 +1661,17 @@ fun GameScreen(
                                 shouldSaveOnExit = false
                                 GameStateManager.clearGame(context, mode, difficulty, isDaily, isZenMode)
                                 resetTrigger++
+                                hadErrorsDuringGame = false
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height((50 * scale).dp),
+                                .wrapContentHeight(),
                             contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary
                             )
                         ) {
-                            Text(strings.newGame, fontSize = (18 * scale).sp)
+                            Text(strings.newGame, fontSize = (20 * scale).sp)
                         }
                     }
                 }
