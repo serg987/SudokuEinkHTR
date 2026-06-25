@@ -6,6 +6,13 @@
 ![Release](https://img.shields.io/github/v/release/serg987/SudokuEinkHTR)
 ![Downloads](https://img.shields.io/github/downloads/serg987/SudokuEinkHTR/total)
 
+## Screenshots
+<p>
+  <img src="images/Menu_english.png" width="200">
+  <img src="images/Game_english.png" width="200">
+  <img src="images/Stats_english.png" width="200">
+</p>
+
 ## About This Fork
 
 This project is a fork of [SudokuEink by ktacrack](https://github.com/ktacrack/SudokuEink), branching off from version 1.5.1. The first release of this fork is `0.1.0`. 
