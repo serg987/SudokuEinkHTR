@@ -6,15 +6,15 @@ plugins {
 }
 
 android {
-    namespace = "com.ktacrack.sudokueink"
+    namespace = "io.github.serg987.sudokueinkhtr"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.ktacrack.sudokueink"
+        applicationId = "io.github.serg987.sudokueinkhtr"
         minSdk = 26
         targetSdk = 36
         versionCode = 7
-        versionName = "1.5.1"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -33,7 +33,7 @@ android {
             resValue(
                 "string",
                 "app_name",
-                "Sudoku E-ink v${defaultConfig.versionName}"
+                "Sudoku E-Ink HTR"
             )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -46,7 +46,7 @@ android {
             resValue(
                 "string",
                 "app_name",
-                "Sudoku E-ink v${defaultConfig.versionName} (debug)"
+                "Sudoku E-Ink HTR"
             )
         }
     }
@@ -63,6 +63,10 @@ android {
     }
 
     packaging {
+        jniLibs {
+            pickFirsts += setOf("**/libc++_shared.so")
+            useLegacyPackaging = true
+        }
         resources {
             excludes += setOf(
                 "META-INF/DEPENDENCIES",
@@ -79,7 +83,7 @@ android {
 // Nom personalitzat per l'arxiu APK
 base {
     archivesName.set(
-        "SudokuEink-${android.defaultConfig.versionName}"
+        "sudokueinkhtr-${android.defaultConfig.versionName}"
     )
 }
 
@@ -105,6 +109,8 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.tensorflow.lite)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
+    implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -113,4 +119,14 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    
+    // Onyx SDK for stylus support
+    implementation("com.onyx.android.sdk:onyxsdk-pen:1.4.11")
+
+    // Fix namespace conflict from older jetified libraries
+    implementation("androidx.vectordrawable:vectordrawable:1.1.0")
+    implementation("androidx.vectordrawable:vectordrawable-animated:1.1.0")
+
+    // Mudita E-ink UI package
+    implementation("com.mudita:MMD:1.0.2")
 }

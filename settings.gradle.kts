@@ -16,9 +16,20 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+        }
+        maven {
+            url = uri("http://repo.boox.com/repository/proxy-public/")
+            isAllowInsecureProtocol = true
+        }
+        maven {
+            url = uri("http://repo.boox.com/repository/maven-public/")
+            isAllowInsecureProtocol = true
+        }
     }
 }
 
-rootProject.name = "SudokuEink"
+rootProject.name = "sudokueinkhtr"
 include(":app")
  

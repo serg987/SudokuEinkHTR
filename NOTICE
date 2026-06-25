@@ -1,0 +1,13 @@
+# Attribution
+
+SudokuEink HTR is based on Sudoku E-ink by ktacrack.
+
+Original repository:
+https://github.com/ktacrack/SudokuEink
+
+Original project license:
+MIT License
+
+This fork includes substantial changes by serg987, including additional handwriting recognition model support and UI changes.
+
+This project is independent and is not the official Sudoku E-ink repository.
