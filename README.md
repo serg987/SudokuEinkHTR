@@ -3,6 +3,8 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-Android-green)
 ![Language](https://img.shields.io/badge/language-Kotlin-purple)
+![Release](https://img.shields.io/github/v/release/serg987/SudokuEinkHTR)
+![Downloads](https://img.shields.io/github/downloads/serg987/SudokuEinkHTR/total)
 
 ## About This Fork
 
